@@ -31,7 +31,8 @@ void loop()
   float flexR = R_DIV_FLEX * (VCC / flexV - 1.0);
   
   float angle = map(flexR, STRAIGHT_R, NINETY_DEG_R, 0, 90.0);
-  
+
+  Serial.println("===========================================");
   Serial.println("Bend: " + String(angle) + " degrees");
   Serial.println();
 
@@ -61,6 +62,15 @@ void loop()
   Serial.print(" Z: ");
   Serial.print(orientation.z());
   Serial.println();
+  Serial.println();
 
-  delay(500);
+  /*Temperature*/
+  int8_t temp = bno.getTemp();
+
+  Serial.print("Current Temperature: ");
+  Serial.print(temp);
+  Serial.println(" C");
+  Serial.println("===========================================");
+
+  delay(1000);
 }

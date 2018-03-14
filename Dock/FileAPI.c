@@ -1,5 +1,5 @@
 //The API function set of calls for accessing and managing the database schema
-//Brendan Luksik
+//Brendan Luksik and Jeremy Manin
 //Senior Design (COE 1896) 2018
 //bk12@pitt.edu
 
@@ -10,12 +10,10 @@
 	RAW STREAMS
 		- A Raw Stream is created and can hold an amount of data up to the configured maximum (which can be turned off)
 		- Chunks of buffered data can be spliced into the stream as they become available
-
 	PROCESSED FILES:
 		- Processed Files are the final dataset streams for GUI and algorithmic use
 		- Once a file is created it can be both accessed as an available processed stream
 		- 
-
 */
 
 #include <stdio.h>
@@ -45,7 +43,11 @@ typedef struct prdat_header {
 	int build_state;
 } prdat_header_t;
 
-typedef struct trfb_data {
+typedef struct trfb_header {
+	int stream_id;
+	int sample_rate;
+	void *first_file;
+	void *last_file;
 	int num_links;
 	int run_time;
 	int build_state;
@@ -91,7 +93,7 @@ int create_new_rawstream() {
 
 /*creates new processed data file for */
 int create_new_processed_file(int rawstream_id) {
-	prdat_header_t proc_header = {rawstream_id, 0, OPEN, NULL, NULL};
+	prdat_header_t proc_header = {rawstream_id, 0, OPEN};
 	FILE *new_proc_file = fopen(create_file_name(rawstream_id, PRDAT, 0), "wb");
 
 	if (fwrite(&proc_header, sizeof(prdat_header_t), 1, new_proc_file) != 1) {
@@ -164,8 +166,6 @@ char *create_file_name(int stream_id, int style, int iteration) {
 	switch (style) {
 		case TRF:
 			//follows the pattern of: <stream_id>_<iteration>.trf
-			
-			for()
 			break;
 		case PRDAT:
 			//follows the pattern of: <stream_id>.prdat
@@ -182,7 +182,7 @@ int FS_register_file(char *filename) {
 		return 1;
 	
 	} else {
-		FILE *fs_table = 
+		FILE *fs_table = fopen(FS_TABLE, "r");
 	}
 	return 0;
 }

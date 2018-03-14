@@ -45,11 +45,7 @@ typedef struct prdat_header {
 	int build_state;
 } prdat_header_t;
 
-typedef struct trfb_header {
-	int stream_id;
-	int sample_rate;
-	void *first_file;
-	void *last_file;
+typedef struct trfb_data {
 	int num_links;
 	int run_time;
 	int build_state;

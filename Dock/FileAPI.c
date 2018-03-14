@@ -45,7 +45,11 @@ typedef struct prdat_header {
 	int build_state;
 } prdat_header_t;
 
-typedef struct trfb_data {
+typedef struct trfb_header {
+	int stream_id;
+	int sample_rate;
+	void *first_file;
+	void *last_file;
 	int num_links;
 	int run_time;
 	int build_state;
@@ -182,7 +186,7 @@ int FS_register_file(char *filename) {
 		return 1;
 	
 	} else {
-	FILE *fs_table = fopen(FS_TABLE, "r");
+		FILE *fs_table = 
 	}
 	return 0;
 }

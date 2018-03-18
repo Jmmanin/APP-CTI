@@ -25,7 +25,11 @@
 #define STATE_TABLE "state.bin"
 #define TRF_QUEUE "fs_rawQueue.bin"
 #define CHECKOUT_TABLE "fs_coTable.bin"
-#define MAX_GAP_CAP 10        /*number of gaps supported in this configuration of the system*/
+
+#define SHORT_FNAME_LENGTH 20  /*The lengths of bufers commonly used for storing filename strings*/
+#define STD_FNAME_LENGTH 30
+#define LONG_FNAME_LENGTH 50
+
 #define MAX_STREAM_TIME  300  /*length of time in seconds a single stream will be constrained to*/
 
 //structs and enums
@@ -33,8 +37,8 @@ typedef struct trf_header {
 	int stream_id;
 	int sample_rate;
 	int time_slice;
-	void *prev_file;
-	void *next_file;
+	char prev_file[LONG_FNAME_LENGTH];
+	char next_file[LONG_FNAME_LENGTH];
 } trf_header_t;
 
 typedef struct prdat_header {
@@ -46,12 +50,12 @@ typedef struct prdat_header {
 typedef struct trfb_header {
 	int stream_id;
 	int sample_rate;
-	void *first_file;
-	void *last_file;
+	char first_file[LONG_FNAME_LENGTH];
+	char last_file[LONG_FNAME_LENGTH];
 	int num_links;
 	int run_time;
 	int build_state;
-} trfb_data_t;
+} trfb_header_t;
 
 /*state for whether stream accepts new data*/
 enum build_states {
@@ -83,8 +87,8 @@ enum file_types {
 
 //PROTOTYPES
 int create_stream_id();
-void create_file_name(char *filename_s, int stream_id, int style, int iteration);
-int create_rawstream_base_file(trf_header_t meta_data, trfb_data_t data);
+int create_rawstream_base_file(trfb_header_t meta_data);
+void FS_get_file_name(char *filename_s, int stream_id, int style, int iteration);
 int FS_register_stream(int stream_id);
 int FS_check_file(char *filename);
 int FS_check_stream(int stream_id);
@@ -93,21 +97,22 @@ int FS_check_stream(int stream_id);
 /*creates new rawstream resource for callers to add buffers into
 	-returns: id of the resource (int)
 */
-int create_new_rawstream() {
+int create_new_rawstream(int sample_rate) {
 	int stream_id = create_stream_id();
 	if (!stream_id) { return 0; }
 
-	trf_header_t base_header = {stream_id, 0, -1, NULL, NULL};
-	trfb_data_t base_data = {0, 0, OPEN};
+	trfb_header_t base_header = {stream_id, sample_rate, NULL, NULL, 0, 0, NEW};
 
-	if (!create_rawstream_base_file(base_header, base_data)) { return stream_id; }
+	if (!create_rawstream_base_file(base_header)) { return stream_id; }
 	return 0;
+
 }
+
 
 /*creates new processed data file for */
 int create_new_processed_file(int rawstream_id) {
 	/*prdat_header_t proc_header = {rawstream_id, 0, OPEN};
-	FILE *new_proc_file = fopen(create_file_name(rawstream_id, PRDAT, 0), "wb");
+	FILE *new_proc_file = fopen(FS_get_file_name(rawstream_id, PRDAT, 0), "wb");
 
 	if (fwrite(&proc_header, sizeof(prdat_header_t), 1, new_proc_file) != 1) {
 		return 1;
@@ -116,9 +121,72 @@ int create_new_processed_file(int rawstream_id) {
 	return 0;
 }
 
-/*pulls a buffered set of data into a raw file stream*/
-int store_raw_chunk(int stream_ptr, int *buffer_ptr, int sample_rate) {
+/*pulls a buffered set of data into a raw file stream
+exit statuses: 
+	- 0: all good
+	- 1: stream_ptr points to a stream the does not exist
+	- 2: Could not find or access the previous trailing file
+*/
+int store_raw_chunk(int stream_ptr, int *buffer_ptr, int chunk_timelength) {
+	trfb_header_t stream_info;
+	trf_header_t new_header;
+	trf_header_t prevtrail_header;
+	int i, payload_length;
+	char trf_file_s[LONG_FNAME_LENGTH];
+	char trfb_s[STD_FNAME_LENGTH];
 
+	//if(FS_check_stream() != open trf) { do not store chunk }
+	FS_get_file_name(trfb_s, stream_ptr, TRFB, 0);
+	if(!FS_check_file(trfb_s)) {
+		return 1; //exit status for stream DNE
+	}
+
+	FILE *trfb = fopen(trfb_s, "rb");
+	fread(&stream_info, sizeof(trfb_header_t), 1, trfb);
+	fclose(trfb);
+
+	//update new header info
+	FS_get_file_name(trf_file_s, stream_ptr, TRF, stream_info.num_links);
+	new_header.sample_rate = stream_info.sample_rate;
+	new_header.time_slice = stream_info.run_time;
+	payload_length = stream_info.sample_rate * chunk_timelength;
+	for(i = 0; i < LONG_FNAME_LENGTH; i++) {
+		new_header.prev_file[i] = stream_info.last_file[i];
+	}
+
+	//pull and update last file in the double link list
+	FILE *trailing_trf = fopen(new_header.prev_file, "rb");
+	if(trailing_trf == NULL) {
+		if(stream_info.num_links != 0) {
+			return 2; //corrupted or missing link in chain
+		}
+	} else {
+		fread(&prevtrail_header, sizeof(trf_header_t), 1, trailing_trf);
+		fclose(trailing_trf);
+		for(i = 0; i < LONG_FNAME_LENGTH; i++) {
+			prevtrail_header.next_file[i] = trf_file_s[i];
+		}
+	}
+
+	//update base header info
+	stream_info.num_links += 1;
+	stream_info.run_time += chunk_timelength;
+	for(i = 0; i < LONG_FNAME_LENGTH; i++) {
+		stream_info.last_file[i] = trf_file_s[i];
+	}
+
+	//Writes back out to files
+	//trfb file
+	trfb = fopen(trfb_s, "wb");  //ok to overwrite whole file
+	trailing_trf = fopen(new_header.prev_file, "wb"); //How modify file correctly?
+	FILE *new_trf = fopen(trf_file_s, "wb");
+
+	fwrite(&stream_info, sizeof(trfb_header_t), 1, trfb);
+	//put trailing fwrite here - must overwrite header but not payload - 
+	fwrite(&new_header, sizeof(trf_header_t), 1, new_trf);
+	fwrite(buffer_ptr, sizeof(int), payload_length, new_trf);
+
+	fclose(trfb);
 }
 
 /*Stores away processed chunk, handle update of C-Table*/
@@ -158,10 +226,10 @@ int create_stream_id() {
 	fclose(curr_state);
 	return id_state;
 }
-int create_rawstream_base_file(trf_header_t file_info, trfb_data_t file_data) {
+int create_rawstream_base_file(trfb_header_t file_info) {
 	
-	char filename_string[50];
-	create_file_name(filename_string, file_info.stream_id, TRFB, 0);
+	char filename_string[STD_FNAME_LENGTH];
+	FS_get_file_name(filename_string, file_info.stream_id, TRFB, 0);
 	int DBGC_reg_stat;
 	//create the base file with the header
 	FILE *new_trfb = fopen(filename_string, "wb");
@@ -169,10 +237,7 @@ int create_rawstream_base_file(trf_header_t file_info, trfb_data_t file_data) {
 		return 1;
 	}
 
-	if (fwrite(&file_info, sizeof(trf_header_t), 1, new_trfb) != 1) {
-		return 2;
-	}
-	if (fwrite(&file_data, sizeof(trfb_data_t), 1, new_trfb) != 1) {
+	if (fwrite(&file_info, sizeof(trfb_header_t), 1, new_trfb) != 1) {
 		return 2;
 	}
 
@@ -181,7 +246,7 @@ int create_rawstream_base_file(trf_header_t file_info, trfb_data_t file_data) {
 	return 0;
 }
 
-void create_file_name(char *filename_s, int stream_id, int style, int iteration) {
+void FS_get_file_name(char *filename_s, int stream_id, int style, int iteration) {
 
 	if (stream_id == 0) {
 		return;
@@ -205,9 +270,9 @@ void create_file_name(char *filename_s, int stream_id, int style, int iteration)
 }
 
 //MANAGEMENT TABLE CALLS
-	//FILE SYSTEM LOOKUP TABLE (fs-table)
+	//FILE SYSTEM LOOKUP TABLE (fs-table) BOOLEAN
 int FS_register_stream(int stream_id) {
-	char stream_id_s[20];
+	char stream_id_s[SHORT_FNAME_LENGTH];
 	//if stream is in table throw 1 exit
 	if (FS_check_stream(stream_id)) {
 		//printf("***FS: file already exists: not registering.");
@@ -224,7 +289,8 @@ int FS_register_stream(int stream_id) {
 	return 1;
 }
 
-	//TODO: determine who file will be organized and seeked.
+	//TODO: determine who file will be organized and seeked. 
+	//looks for a file in the folder BOOLEAN
 int FS_check_file(char* filename) {
 	FILE *target = fopen(filename, "rb");
 	

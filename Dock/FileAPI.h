@@ -17,7 +17,7 @@ Includes calls for
 //		RAW DATA STREAM
 int create_new_rawstream();
 
-int store_raw_chunk(void *stream_ptr, int *buffer_ptr, int sample_rate);
+int store_raw_chunk(void *stream_ptr, void *buffer_ptr, int sample_rate);
 
 int cap_rawstream(void *stream_ptr);
 

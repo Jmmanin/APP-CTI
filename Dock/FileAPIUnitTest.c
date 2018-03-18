@@ -33,13 +33,30 @@ int filestream_create_test() {
 	if (id_1 && id_2) { return 1; }
 	return 0;
 }
+
+int store_raw_chunk_test()
+{
+    char buffer1[] = {'T','E','S','T','1'};
+    char buffer2[] = {'T','E','S','T','1'};   
+
+    FS_Init();
+    printf("store raw chunk test:\n");
+
+    int id = create_new_rawstream(1);
+    
+    if(id)
+    {
+        store_raw_chunk(&id, buffer1, 5);
+        store_raw_chunk(&id, buffer2, 5);                
+    }
+    
+    return 0;
+}
 	
 int main() {
 
 	//ADD NEW TEST BATTERY FUNCTIONS
-	int(*test_battery[])() = {filestream_create_test};
-	
-	
+	int(*test_battery[])() = {/*filestream_create_test, */store_raw_chunk_test};
 	
 	//Test battery call
 	int i;

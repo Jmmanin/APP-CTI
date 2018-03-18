@@ -85,8 +85,9 @@ enum file_types {
 int create_stream_id();
 void create_file_name(char *filename_s, int stream_id, int style, int iteration);
 int create_rawstream_base_file(trf_header_t meta_data, trfb_data_t data);
-int FS_register_file(char *filename);
+int FS_register_stream(int stream_id);
 int FS_check_file(char *filename);
+int FS_check_stream(int stream_id);
 
 
 /*creates new rawstream resource for callers to add buffers into
@@ -116,7 +117,9 @@ int create_new_processed_file(int rawstream_id) {
 }
 
 /*pulls a buffered set of data into a raw file stream*/
-int store_raw_chunk(void *stream_ptr, int *buffer_ptr, int sample_rate) {}
+int store_raw_chunk(int stream_ptr, int *buffer_ptr, int sample_rate) {
+
+}
 
 /*Stores away processed chunk, handle update of C-Table*/
 int store_processed_chunk(void *stream_ptr, int *buffer_ptr) {}
@@ -173,7 +176,7 @@ int create_rawstream_base_file(trf_header_t file_info, trfb_data_t file_data) {
 		return 2;
 	}
 
-	DBGC_reg_stat = FS_register_file(filename_string);
+	DBGC_reg_stat = FS_register_stream(file_info.stream_id);
 	fclose(new_trfb);
 	return 0;
 }
@@ -203,18 +206,22 @@ void create_file_name(char *filename_s, int stream_id, int style, int iteration)
 
 //MANAGEMENT TABLE CALLS
 	//FILE SYSTEM LOOKUP TABLE (fs-table)
-int FS_register_file(char *filename) {
+int FS_register_stream(int stream_id) {
+	char stream_id_s[20];
 	//if stream is in table throw 1 exit
-	if (FS_check_file(filename)) {
-		return 1;
+	if (FS_check_stream(stream_id)) {
+		//printf("***FS: file already exists: not registering.");
+		return 0;
 	
 	} else {
-		FILE *fs_table = fopen(FS_TABLE, "w");
-		fseek(fs_table, 0, SEEK_END);
-		fwrite(filename, sizeof(char), strlen(filename), fs_table);
+		sprintf(stream_id_s, "%d\n", stream_id);
+
+		FILE *fs_table = fopen(FS_TABLE, "a");
+		//fseek(fs_table, 1, SEEK_END);
+		fwrite(&stream_id_s, sizeof(char), strlen(stream_id_s), fs_table);
 		fclose(fs_table);
 	}
-	return 0;
+	return 1;
 }
 
 	//TODO: determine who file will be organized and seeked.
@@ -228,6 +235,11 @@ int FS_check_file(char* filename) {
 	return 0;
 }
 
+/*returns the state of the stream ID
+ ToDo: properly implement state check
+*/
+int FS_check_stream(int stream_id) { return 0; }
+
 //Ensure neccessary files are present for work, creates if not
 void FS_Init() {
 	//intial values
@@ -238,5 +250,11 @@ void FS_Init() {
 		FILE *state_table = fopen(STATE_TABLE, "wb");
 		fwrite(&state_init, sizeof(int), 1, state_table);
 		fclose(state_table);
+	}
+
+	//check for File System table
+	if(!FS_check_file(FS_TABLE)) {
+		FILE *fs_table = fopen(FS_TABLE, "a"); //creates empty file
+		fclose(fs_table);
 	}
 }

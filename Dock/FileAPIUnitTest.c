@@ -9,6 +9,7 @@
 //---------FUNCTIONALITY TESTS-----------
 	//-I test the proper creation of new filestreams
 int filestream_create_test() {
+	FS_Init();
 	printf("create new rawstream test:\n");
 	printf("should output a new .trf file and matching id for each call\n\n");
 
@@ -21,6 +22,7 @@ int filestream_create_test() {
 	else {
 		printf("FAILED\n");
 	}
+	printf("Stream 2: ");
 	if (id_2) {
 		printf("PASS: ID: %d\n", id_2);
 	}

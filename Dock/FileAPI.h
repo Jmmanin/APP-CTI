@@ -48,6 +48,8 @@ int *read_processed_stream(void *stream_ptr);
 //****************************
 //FS Management Functions
 //****************************
+void FS_Init(); 
+
 int *db_view_db();
 
 int db_backup();

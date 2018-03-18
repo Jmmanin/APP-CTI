@@ -22,11 +22,11 @@
 
 //defines and global state declares
 #define FS_TABLE "fs_fileSystem.txt"
+#define STATE_TABLE "state.bin"
 #define TRF_QUEUE "fs_rawQueue.bin"
 #define CHECKOUT_TABLE "fs_coTable.bin"
 #define MAX_GAP_CAP 10        /*number of gaps supported in this configuration of the system*/
 #define MAX_STREAM_TIME  300  /*length of time in seconds a single stream will be constrained to*/
-
 
 //structs and enums
 typedef struct trf_header {
@@ -53,9 +53,18 @@ typedef struct trfb_header {
 	int build_state;
 } trfb_data_t;
 
+/*state for whether stream accepts new data*/
 enum build_states {
 	OPEN,
 	COMPLETE
+};
+
+/*current state of completeness for a stream*/
+enum stream_states {
+	NEW,
+	RAW,
+	PARTIAL,
+	DONE
 };
 
 enum constraint_types {
@@ -64,6 +73,7 @@ enum constraint_types {
 	BYTES
 };
 
+/*types of files existant in the system*/
 enum file_types {
 	TRF,
 	TRFB,
@@ -73,8 +83,10 @@ enum file_types {
 
 //PROTOTYPES
 int create_stream_id();
+void create_file_name(char *filename_s, int stream_id, int style, int iteration);
 int create_rawstream_base_file(trf_header_t meta_data, trfb_data_t data);
 int FS_register_file(char *filename);
+int FS_check_file(char *filename);
 
 
 /*creates new rawstream resource for callers to add buffers into
@@ -93,12 +105,12 @@ int create_new_rawstream() {
 
 /*creates new processed data file for */
 int create_new_processed_file(int rawstream_id) {
-	prdat_header_t proc_header = {rawstream_id, 0, OPEN};
+	/*prdat_header_t proc_header = {rawstream_id, 0, OPEN};
 	FILE *new_proc_file = fopen(create_file_name(rawstream_id, PRDAT, 0), "wb");
 
 	if (fwrite(&proc_header, sizeof(prdat_header_t), 1, new_proc_file) != 1) {
 		return 1;
-	}
+	}*/
 
 	return 0;
 }
@@ -117,9 +129,6 @@ int store_processed_new(prdat_header_t meta_data, int *buffer_ptr, int buff_leng
 int cap_rawstream(void *stream_ptr) {}
 int cap_processed_file(void *stream_ptr) {}
 
-int checkout_raw_chunk() {}
-int checkout_raw_chunk(void *stream_ptr) {}
-
 int read_raw_chunk(void *stream_ptr) {}
 int *read_processed_stream(void *stream_ptr) {}
 
@@ -130,10 +139,26 @@ int db_restore_file() {}
 //Internal functionalities
 int create_stream_id() {
 	//id selection function here
+	int id_state;
+	
+	FILE *curr_state = fopen(STATE_TABLE, "rb");
+	if(curr_state == NULL) { return 0; }
+	
+	fread(&id_state, sizeof(int), 1, curr_state);
+	id_state += 1;
+	fclose(curr_state);
+	
+	curr_state = fopen(STATE_TABLE, "wb");
+	if(curr_state == NULL) { return 0; }
+	fwrite(&id_state, sizeof(int), 1, curr_state);
+
+	fclose(curr_state);
+	return id_state;
 }
 int create_rawstream_base_file(trf_header_t file_info, trfb_data_t file_data) {
 	
-	char* filename_string = create_file_name(file_info.stream_id, TRF, 0);
+	char filename_string[50];
+	create_file_name(filename_string, file_info.stream_id, TRFB, 0);
 	int DBGC_reg_stat;
 	//create the base file with the header
 	FILE *new_trfb = fopen(filename_string, "wb");
@@ -149,29 +174,31 @@ int create_rawstream_base_file(trf_header_t file_info, trfb_data_t file_data) {
 	}
 
 	DBGC_reg_stat = FS_register_file(filename_string);
+	fclose(new_trfb);
 	return 0;
 }
 
-char *create_file_name(int stream_id, int style, int iteration) {
-	char *stream_id_s[20];
-	char *iter_s[10];
-	char *filename_s;
+void create_file_name(char *filename_s, int stream_id, int style, int iteration) {
 
 	if (stream_id == 0) {
-		return NULL;
+		return;
 	}
 
-	itoa(stream_id, stream_id_s, 20);
-	itoa(iteration, iter_s, 10);
 	switch (style) {
 		case TRF:
 			//follows the pattern of: <stream_id>_<iteration>.trf
+			sprintf(filename_s, "%d_%d.trf", stream_id, iteration);
+			break;
+		case TRFB:
+			//follows the pattern of: <stream_id>.trf
+			sprintf(filename_s, "%d.trf", stream_id);
 			break;
 		case PRDAT:
 			//follows the pattern of: <stream_id>.prdat
+			sprintf(filename_s, "%d.prdat", stream_id);
 			break;
 	}
-	return NULL;
+	return;
 }
 
 //MANAGEMENT TABLE CALLS
@@ -182,9 +209,34 @@ int FS_register_file(char *filename) {
 		return 1;
 	
 	} else {
-		FILE *fs_table = fopen(FS_TABLE, "r");
+		FILE *fs_table = fopen(FS_TABLE, "w");
+		fseek(fs_table, 0, SEEK_END);
+		fwrite(filename, sizeof(char), strlen(filename), fs_table);
+		fclose(fs_table);
 	}
 	return 0;
 }
 
-int FS_check_file(char* filename) {}
+	//TODO: determine who file will be organized and seeked.
+int FS_check_file(char* filename) {
+	FILE *target = fopen(filename, "rb");
+	
+	if(target != NULL) {
+		fclose(target);
+		return 1;
+	}
+	return 0;
+}
+
+//Ensure neccessary files are present for work, creates if not
+void FS_Init() {
+	//intial values
+	int state_init = 1;
+
+	//check for state table
+	if(!FS_check_file(STATE_TABLE)) {
+		FILE *state_table = fopen(STATE_TABLE, "wb");
+		fwrite(&state_init, sizeof(int), 1, state_table);
+		fclose(state_table);
+	}
+}

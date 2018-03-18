@@ -31,6 +31,9 @@
 #define LONG_FNAME_LENGTH 50
 
 #define MAX_STREAM_TIME  300  /*length of time in seconds a single stream will be constrained to*/
+#define MAX_SAMPLE_RATE 60 /*60hz max sample rate*/
+#define SAMPLE_SIZE 10 /*standardized sample size*/
+#define MAX_BUFF_SIZE (MAX_STREAM_TIME * MAX_SAMPLE_RATE * SAMPLE_SIZE) /*largest possible buffer size*/
 
 //structs and enums
 typedef struct trf_header {
@@ -136,6 +139,7 @@ int store_raw_chunk(int stream_ptr, int *buffer_ptr, int chunk_timelength) {
    int i, payload_length;
    char trf_file_s[LONG_FNAME_LENGTH];
    char trfb_s[STD_FNAME_LENGTH];
+   char prevtrail_payload[MAX_BUFF_SIZE];
 
 	//if(FS_check_stream() != open trf) { do not store chunk }
    FS_get_file_name(trfb_s, stream_ptr, TRFB, 0);
@@ -157,7 +161,7 @@ int store_raw_chunk(int stream_ptr, int *buffer_ptr, int chunk_timelength) {
    }
 
 	//pull and update last file in the double link list
-   FILE *trailing_trf = fopen(new_header.prev_file, "rb");
+   FILE *trailing_trf = fopen(new_header.prev_file, "rb"); 
    if(trailing_trf == NULL) {
       if(stream_info.num_links != 0) {
          return 2; //corrupted or missing link in chain
@@ -165,6 +169,7 @@ int store_raw_chunk(int stream_ptr, int *buffer_ptr, int chunk_timelength) {
    } 
    else {
       fread(&prevtrail_header, sizeof(trf_header_t), 1, trailing_trf);
+      fread(&prevtrail_payload, sizeof(char), MAX_BUFF_SIZE, trailing_trf);
       fclose(trailing_trf);
       for(i = 0; i < LONG_FNAME_LENGTH; i++) {
          prevtrail_header.next_file[i] = trf_file_s[i];
@@ -181,15 +186,22 @@ int store_raw_chunk(int stream_ptr, int *buffer_ptr, int chunk_timelength) {
 	//Writes back out to files
 	//trfb file
    trfb = fopen(trfb_s, "wb");  //ok to overwrite whole file
-   trailing_trf = fopen(new_header.prev_file, "wb"); //How modify file correctly?
+   trailing_trf = fopen(new_header.prev_file, "wb");
    FILE *new_trf = fopen(trf_file_s, "wb");
 
    fwrite(&stream_info, sizeof(trfb_header_t), 1, trfb);
-	//put trailing fwrite here - must overwrite header but not payload - 
+   
+   fwrite(&prevtrail_header, sizeof(trf_header_t), 1, trailing_trf);
+   fclose(trailing_trf);
+   trailing_trf = fopen(new_header.prev_file, "ab");
+   fwrite(&prevtrail_payload, sizeof(char), MAX_BUFF_SIZE, trailing_trf);
+    
    fwrite(&new_header, sizeof(trf_header_t), 1, new_trf);
    fwrite(buffer_ptr, sizeof(int), payload_length, new_trf);
 
    fclose(trfb);
+   fclose(trailing_trf);
+   fclose(new_trf);
 }
 
 /*Stores away processed chunk, handle update of C-Table*/

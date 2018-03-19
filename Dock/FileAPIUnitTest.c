@@ -36,18 +36,25 @@ int filestream_create_test() {
 
 int store_raw_chunk_test()
 {
-    char buffer1[] = {'T','E','S','T','1'};
-    char buffer2[] = {'T','E','S','T','1'};   
+    char *buffer1 = "Test1";
+    char *buffer2 = "Test2"; 
+    char buffer_cmp1[5];  
+    //trf_header_t header;
 
     FS_Init();
     printf("store raw chunk test:\n");
 
-    int id = create_new_rawstream(1);
+    int id = create_new_rawstream();
     
     if(id)
     {
-        store_raw_chunk(&id, buffer1, 5);
-        store_raw_chunk(&id, buffer2, 5);                
+        store_raw_chunk(id, buffer1, 5);
+        store_raw_chunk(id, buffer2, 5);                
+        /*FILE *f_ptr = fopen("2_0.trf", "r");
+        fread(&header, sizeof(trf_header_t), 1, f_ptr);
+        fread(&buffer_cmp1, sizeof(char), 5, f_ptr);
+        fclose(f_ptr);
+        printf("Buffer:%s!\n", buffer_cmp1);*/ 
     }
     
     return 0;

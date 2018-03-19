@@ -132,7 +132,7 @@ exit statuses:
     - 1: stream_ptr points to a stream the does not exist
     - 2: Could not find or access the previous trailing file
 */
-int store_raw_chunk(int stream_ptr, void *buffer_ptr, int chunk_timelength) {
+int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_timelength) {
     trfb_header_t stream_info;
     trf_header_t new_header;
     trf_header_t prevtrail_header;
@@ -142,7 +142,7 @@ int store_raw_chunk(int stream_ptr, void *buffer_ptr, int chunk_timelength) {
     char prevtrail_payload[MAX_BUFF_SIZE];
 
     //if(FS_check_stream() != open trf) { do not store chunk }
-    FS_get_file_name(trfb_s, stream_ptr, TRFB, 0);
+    FS_get_file_name(trfb_s, stream_id, TRFB, 0);
     if(!FS_check_file(trfb_s)) {
         return 1; //exit status for stream DNE
     }
@@ -152,7 +152,7 @@ int store_raw_chunk(int stream_ptr, void *buffer_ptr, int chunk_timelength) {
     fclose(trfb);
 
     //update new header info
-    FS_get_file_name(trf_file_s, stream_ptr, TRF, stream_info.num_links);
+    FS_get_file_name(trf_file_s, stream_id, TRF, stream_info.num_links);
     new_header.sample_rate = stream_info.sample_rate;
     new_header.time_slice = stream_info.run_time;
     payload_length = stream_info.sample_rate * chunk_timelength;
@@ -174,36 +174,48 @@ int store_raw_chunk(int stream_ptr, void *buffer_ptr, int chunk_timelength) {
         for(i = 0; i < LONG_FNAME_LENGTH; i++) {
             prevtrail_header.next_file[i] = trf_file_s[i];
         } 
-    }
+    }   
 
     //update base header info
     stream_info.num_links += 1;
     stream_info.run_time += chunk_timelength;
     for(i = 0; i < LONG_FNAME_LENGTH; i++) {
         stream_info.last_file[i] = trf_file_s[i];
-    }
+    }     
 
     //Writes back out to files
-    //trfb file
-    trfb = fopen(trfb_s, "wb");  //ok to overwrite whole file
-    trailing_trf = fopen(new_header.prev_file, "wb");
-    FILE *new_trf = fopen(trf_file_s, "wb");
-
+    trfb = fopen(trfb_s, "wb");
     fwrite(&stream_info, sizeof(trfb_header_t), 1, trfb);
-   
-    fwrite(&prevtrail_header, sizeof(trf_header_t), 1, trailing_trf);
-    fclose(trailing_trf);
-    trailing_trf = fopen(new_header.prev_file, "ab");
-    fwrite(&prevtrail_payload, sizeof(char), MAX_BUFF_SIZE, trailing_trf);
-    
-    fwrite(&new_header, sizeof(trf_header_t), 1, new_trf);
-    fwrite(buffer_ptr, sizeof(int), payload_length, new_trf);
-
     fclose(trfb);
-    fclose(trailing_trf);
+    
+    printf("Buffer:%s!\n", buffer_ptr);
+    
+    if(strcmp(new_header.prev_file, "")!=0)
+    {
+        trailing_trf = fopen(new_header.prev_file, "wb");   
+        fwrite(&prevtrail_header, sizeof(trf_header_t), 1, trailing_trf);
+        fclose(trailing_trf);
+        trailing_trf = fopen(new_header.prev_file, "ab");
+        fwrite(&prevtrail_payload, sizeof(char), MAX_BUFF_SIZE, trailing_trf);
+        fclose(trailing_trf);
+    }
+    
+    printf("Payload:%s!\n", prevtrail_payload);
+    
+    FILE *new_trf = fopen(trf_file_s, "wb");    
+    fwrite(&new_header, sizeof(trf_header_t), 1, new_trf);
+    fwrite(&buffer_ptr, sizeof(int), payload_length, new_trf);
     fclose(new_trf);
+    
+    trf_header_t header;
+    char buffer_cmp1[10];
+    FILE *f_ptr = fopen("2_0.trf", "r");
+    fread(&header, sizeof(trf_header_t), 1, f_ptr);
+    fread(&buffer_cmp1, sizeof(char), 10, f_ptr);
+    fclose(f_ptr);
+    fprintf(stderr, "Buffer:%s!\n", buffer_cmp1);
 
-    fprintf
+    return 0;
 }
 
 /*Stores away processed chunk, handle update of C-Table*/

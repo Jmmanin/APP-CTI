@@ -5,17 +5,42 @@ Includes calls for
 - reading and viewing the inner file system
 - managing the inner file system
 */
-
+#define SHORT_FNAME_LENGTH 20  /*The lengths of buffers commonly used for storing filename strings*/
+#define STD_FNAME_LENGTH 30
+#define LONG_FNAME_LENGTH 50
 
 //****************************
 //Available Typing and Structs
 //****************************
+typedef struct trf_header {
+    int stream_id;
+    int sample_rate;
+    int time_slice;
+    int payload;
+    char prev_file[LONG_FNAME_LENGTH];
+    char next_file[LONG_FNAME_LENGTH];
+} trf_header_t;
 
+typedef struct prdat_header {
+    int stream_id;
+    int sample_rate;
+    int build_state;
+} prdat_header_t;
+
+typedef struct trfb_header {
+    int stream_id;
+    int sample_rate;
+    char first_file[LONG_FNAME_LENGTH];
+    char last_file[LONG_FNAME_LENGTH];
+    int num_links;
+    int run_time;
+    int build_state;
+} trfb_header_t;
 //****************************
 // file writing Functions
 //****************************
 //		RAW DATA STREAM
-int create_new_rawstream();
+int create_new_rawstream(int sample_rate);
 
 int store_raw_chunk(int stream_id, char *buffer_ptr, int sample_rate);
 
@@ -41,9 +66,9 @@ int checkout_raw_chunk(void *stream_ptr);
 //Read/Traverse Functions
 //****************************
 
-int *read_raw_chunk(void *stream_ptr);
+int read_raw_chunk(void *stream_ptr);
 
-int *read_processed_stream(void *stream_ptr);
+int read_processed_stream(void *stream_ptr);
 
 //****************************
 //FS Management Functions

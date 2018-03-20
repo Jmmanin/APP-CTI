@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "FileAPI.h"
 
 //defines and global state declares
 #define FS_TABLE "fs_fileSystem.txt"
@@ -26,39 +27,16 @@
 #define TRF_QUEUE "fs_rawQueue.bin"
 #define CHECKOUT_TABLE "fs_coTable.bin"
 
-#define SHORT_FNAME_LENGTH 20  /*The lengths of bufers commonly used for storing filename strings*/
+#define SHORT_FNAME_LENGTH 20  /*The lengths of buffers commonly used for storing filename strings*/
 #define STD_FNAME_LENGTH 30
 #define LONG_FNAME_LENGTH 50
 
 #define MAX_STREAM_TIME  300  /*length of time in seconds a single stream will be constrained to*/
 #define MAX_SAMPLE_RATE 60 /*60hz max sample rate*/
-#define SAMPLE_SIZE 10 /*standardized sample size*/
+#define SAMPLE_SIZE 1 /*standardized sample size*/
 #define MAX_BUFF_SIZE (MAX_STREAM_TIME * MAX_SAMPLE_RATE * SAMPLE_SIZE) /*largest possible buffer size*/
 
 //structs and enums
-typedef struct trf_header {
-    int stream_id;
-    int sample_rate;
-    int time_slice;
-    char prev_file[LONG_FNAME_LENGTH];
-    char next_file[LONG_FNAME_LENGTH];
-} trf_header_t;
-
-typedef struct prdat_header {
-    int stream_id;
-    int sample_rate;
-    int build_state;
-} prdat_header_t;
-
-typedef struct trfb_header {
-    int stream_id;
-    int sample_rate;
-    char first_file[LONG_FNAME_LENGTH];
-    char last_file[LONG_FNAME_LENGTH];
-    int num_links;
-    int run_time;
-    int build_state;
-} trfb_header_t;
 
 /*state for whether stream accepts new data*/
 enum build_states {
@@ -136,86 +114,87 @@ int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_timelength) {
     trfb_header_t stream_info;
     trf_header_t new_header;
     trf_header_t prevtrail_header;
-    int i, payload_length;
+    
+    int i;
+    int first_commit_flag = 0;
+    
     char trf_file_s[LONG_FNAME_LENGTH];
     char trfb_s[STD_FNAME_LENGTH];
     char prevtrail_payload[MAX_BUFF_SIZE];
+    
+    FILE *trfb;
+    FILE *trailing_trf;
+    FILE *new_entry;
 
-    //if(FS_check_stream() != open trf) { do not store chunk }
+    //ENSURE VALID FILESTREAM
     FS_get_file_name(trfb_s, stream_id, TRFB, 0);
     if(!FS_check_file(trfb_s)) {
         return 1; //exit status for stream DNE
     }
-
-    FILE *trfb = fopen(trfb_s, "rb");
+    
+        //get base file
+    trfb = fopen(trfb_s, "rb");
     fread(&stream_info, sizeof(trfb_header_t), 1, trfb);
     fclose(trfb);
+    if(stream_info.num_links == 0) {
+        first_commit_flag = 1;
+    }
 
-    //update new header info
-    FS_get_file_name(trf_file_s, stream_id, TRF, stream_info.num_links);
+        //update new header info
+    FS_get_file_name(trf_file_s, stream_id, TRF, (stream_info.num_links));
+    new_header.stream_id = stream_info.stream_id;
     new_header.sample_rate = stream_info.sample_rate;
     new_header.time_slice = stream_info.run_time;
-    payload_length = stream_info.sample_rate * chunk_timelength;
+    new_header.payload = stream_info.sample_rate * chunk_timelength * SAMPLE_SIZE;
     for(i = 0; i < LONG_FNAME_LENGTH; i++) {
         new_header.prev_file[i] = stream_info.last_file[i];
     }
 
-    //pull and update last file in the double link list
-    FILE *trailing_trf = fopen(new_header.prev_file, "rb"); 
-    if(trailing_trf == NULL) {
-        if(stream_info.num_links != 0) {
-            return 2; //corrupted or missing link in chain
+        //update base header info
+    if(first_commit_flag == 1) {
+        for(i = 0; i < LONG_FNAME_LENGTH; i++) {
+            stream_info.first_file[i] = trf_file_s[i];
         }
-    } 
-    else {
+    }
+    for(i = 0; i < LONG_FNAME_LENGTH; i++) {
+        stream_info.last_file[i] = trf_file_s[i];
+    }    
+    stream_info.num_links += 1;
+    stream_info.run_time += chunk_timelength; 
+    
+        //update trailing file info
+    if(!first_commit_flag) {
+            //pull in file
+        trailing_trf = fopen(new_header.prev_file, "rb");
         fread(&prevtrail_header, sizeof(trf_header_t), 1, trailing_trf);
-        fread(&prevtrail_payload, sizeof(char), MAX_BUFF_SIZE, trailing_trf);
+        fread(&prevtrail_payload, sizeof(char), prevtrail_header.payload, trailing_trf);
         fclose(trailing_trf);
+
+            //update data
         for(i = 0; i < LONG_FNAME_LENGTH; i++) {
             prevtrail_header.next_file[i] = trf_file_s[i];
         } 
-    }   
-
-    //update base header info
-    stream_info.num_links += 1;
-    stream_info.run_time += chunk_timelength;
-    for(i = 0; i < LONG_FNAME_LENGTH; i++) {
-        stream_info.last_file[i] = trf_file_s[i];
-    }     
+            //write back to file
+        trailing_trf = fopen(new_header.prev_file, "wb");
+        fwrite(&prevtrail_header, sizeof(trf_header_t), 1, trailing_trf);
+        fwrite(&prevtrail_payload, sizeof(char), MAX_BUFF_SIZE, trailing_trf);
+        fclose; 
+    }  
 
     //Writes back out to files
+        //BASE FILE
     trfb = fopen(trfb_s, "wb");
     fwrite(&stream_info, sizeof(trfb_header_t), 1, trfb);
     fclose(trfb);
     
-    printf("Buffer:%s!\n", buffer_ptr);
-    
-    if(strcmp(new_header.prev_file, "")!=0)
-    {
-        trailing_trf = fopen(new_header.prev_file, "wb");   
-        fwrite(&prevtrail_header, sizeof(trf_header_t), 1, trailing_trf);
-        fclose(trailing_trf);
-        trailing_trf = fopen(new_header.prev_file, "ab");
-        fwrite(&prevtrail_payload, sizeof(char), MAX_BUFF_SIZE, trailing_trf);
-        fclose(trailing_trf);
-    }
-    
-    printf("Payload:%s!\n", prevtrail_payload);
-    
-    FILE *new_trf = fopen(trf_file_s, "wb");    
-    fwrite(&new_header, sizeof(trf_header_t), 1, new_trf);
-    fwrite(&buffer_ptr, sizeof(int), payload_length, new_trf);
-    fclose(new_trf);
-    
-    trf_header_t header;
-    char buffer_cmp1[10];
-    FILE *f_ptr = fopen("2_0.trf", "r");
-    fread(&header, sizeof(trf_header_t), 1, f_ptr);
-    fread(&buffer_cmp1, sizeof(char), 10, f_ptr);
-    fclose(f_ptr);
-    fprintf(stderr, "Buffer:%s!\n", buffer_cmp1);
+        //NEW ENTRY
+    new_entry = fopen(trf_file_s, "wb");
+    printf("\n**fs writeout: '%s', length: %d\n", buffer_ptr, new_header.payload);
+    fwrite(&new_header, sizeof(trf_header_t), 1, new_entry);
+    fwrite(&buffer_ptr, sizeof(char), new_header.payload, new_entry);
+    fclose(new_entry);
 
-    return 0;
+    return 0;  //success
 }
 
 /*Stores away processed chunk, handle update of C-Table*/
@@ -230,7 +209,7 @@ int cap_rawstream(void *stream_ptr) {}
 int cap_processed_file(void *stream_ptr) {}
 
 int read_raw_chunk(void *stream_ptr) {}
-int *read_processed_stream(void *stream_ptr) {}
+int read_processed_stream(void *stream_ptr) {}
 
 int db_backup() {}
 int db_restore_db() {}

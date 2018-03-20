@@ -108,7 +108,7 @@ int create_new_processed_file(int rawstream_id) {
 exit statuses: 
     - 0: all good
     - 1: stream_ptr points to a stream the does not exist
-    - 2: Could not find or access the previous trailing file
+    - 2: stream_ptr points to a COMPLETE stream
 */
 int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_timelength) {
     trfb_header_t stream_info;
@@ -136,12 +136,17 @@ int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_timelength) {
     trfb = fopen(trfb_s, "rb");
     fread(&stream_info, sizeof(trfb_header_t), 1, trfb);
     fclose(trfb);
+
+    if(stream_info.build_state == COMPLETE) {
+        return 2;  //stream is not accepting chunks
+    }
     if(stream_info.num_links == 0) {
         first_commit_flag = 1;
     }
 
         //update new header info
     FS_get_file_name(trf_file_s, stream_id, TRF, (stream_info.num_links));
+    new_header.link_id = stream_info.num_links;
     new_header.stream_id = stream_info.stream_id;
     new_header.sample_rate = stream_info.sample_rate;
     new_header.time_slice = stream_info.run_time;
@@ -205,7 +210,24 @@ int store_processed_whole(void *stream_ptr, int *buffer_ptr, int buff_length) {}
 
 int store_processed_new(prdat_header_t meta_data, int *buffer_ptr, int buff_length) {}
  
-int cap_rawstream(void *stream_ptr) {}
+int cap_rawstream(int stream_id) {
+    FILE *trfb;
+    char trfb_s[LONG_FNAME_LENGTH];
+    trfb_header_t stream_info;
+
+    FS_get_file_name(trfb_s, stream_id, TRFB, 0);
+
+    trfb = fopen(trfb_s, "rb");  //NOTE: Opening and closing files could be their own functions
+    fread(&stream_info, sizeof(trfb_header_t), 1, trfb);
+    fclose(trfb);
+
+    stream_info.build_state = COMPLETE;
+    
+    trfb = fopen(trfb_s, "wb");
+    fwrite(&stream_info, sizeof(trfb_header_t), 1, trfb);
+    fclose(trfb);
+    return 0;
+}
 int cap_processed_file(void *stream_ptr) {}
 
 int read_raw_chunk(void *stream_ptr) {}

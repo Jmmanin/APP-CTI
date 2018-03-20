@@ -19,6 +19,7 @@ typedef struct trf_header {
     int payload;
     char prev_file[LONG_FNAME_LENGTH];
     char next_file[LONG_FNAME_LENGTH];
+    int link_id;
 } trf_header_t;
 
 typedef struct prdat_header {

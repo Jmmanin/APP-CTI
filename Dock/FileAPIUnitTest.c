@@ -6,6 +6,8 @@
 
 #define NUM_TESTS 1  /*Tests in the battery*/
 
+void print_base_buff(int base);
+
 //---------FUNCTIONALITY TESTS-----------
 	//-I test the proper creation of new filestreams
 int filestream_create_test() {
@@ -36,7 +38,8 @@ int filestream_create_test() {
 
 int store_raw_chunk_test()
 {
-    char *buffer1 = "Test1";
+	char hex_buf[3] = {0x55, 0x1A, 0x45};
+    char *buffer1 = hex_buf;
     char *buffer2 = "IamTest2"; 
     char buffer_cmp1[10];
 	char buffer_cmp2[10];
@@ -50,12 +53,14 @@ int store_raw_chunk_test()
     printf("store raw chunk test:\n");
 
     int id = create_new_rawstream(1); 
-    printf("id: %d", id);
+    printf("id: %d\n", id);
     if(id)
     {
-		
+		printf("\nInput Buffer0: %x, %x, %x\n", hex_buf[0], hex_buf[1], hex_buf[2]);
+		printf("\nInput Buffer1:'%s'\n\n", buffer2);
+
 		/*NOTE: The function expects chunk_timelength as a value in seconds, not buffer length itself*/
-        response1 = store_raw_chunk(id, buffer1, 5); //Everything is set up to assume 1 letter per second
+        response1 = store_raw_chunk(id, buffer1, 3); //Everything is set up to assume 1 letter per second
         response2 = store_raw_chunk(id, buffer2, 8);                
         
 		printf("store1 exit code: %d\n", response1);
@@ -79,13 +84,36 @@ int store_raw_chunk_test()
 		printf("_1.trf: id %d\n rate: %d\n timeslice: %d\n payload: %d\n pfile: %s\n nfile: %s\n\n",
      		header2.stream_id, header2.sample_rate, header2.time_slice, header2.payload, header2.prev_file, header2.next_file);	
         
-		printf("Buffer0:%s!\n", buffer_cmp1);
-		printf("Buffer1:%s!\n", buffer_cmp2);
+		printf("Buffer0:%x, %x, %x\n", buffer_cmp1[0], buffer_cmp1[1], buffer_cmp1[2]);
+		printf("Buffer1:'%s'\n", buffer_cmp2);
     }
     
     return 0;
 }
-	
+
+int test_cap_rawstream() {
+	int resp0, resp1, resp_cap;
+	int id = create_new_rawstream(1);  //create new rawstream with sample rate 2/second
+	char *accept_buffer = "IamTheSenate";
+	char *reject_buffer = "ExecuteOrder66";
+
+	printf("\nTesting stream capping functionality:\n\n");
+	resp0 = store_raw_chunk(id, accept_buffer, 12);
+	resp_cap = cap_rawstream(id);
+	resp1 = store_raw_chunk(id, reject_buffer, 14);
+
+	printf("Response1: %d | Response2: %d\n\n", resp0, resp1);
+	print_base_buff(id);
+
+	if(resp0 == 0 && resp1 == 2) {
+		printf("Test PASS\n");
+		return 1;
+	} else {
+		printf("Test FAIL\n");
+		return 0;
+	}
+} 
+
 int complete_main_unit_test() {
 	int id;
 	id = create_new_rawstream(1); //create a rawstream of 1 sample/second
@@ -104,7 +132,7 @@ int complete_main_unit_test() {
 int main() {
 
 	//ADD NEW TEST BATTERY FUNCTIONS
-	int(*test_battery[])() = {/*filestream_create_test, */store_raw_chunk_test};
+	int(*test_battery[])() = {/*filestream_create_test, store_raw_chunk_test,*/ test_cap_rawstream};
 	
 	//Test battery call
 	int i;
@@ -115,4 +143,15 @@ int main() {
 		printf("\nTest Pass: %d\n\n", result);
 	}
 
+}
+
+//helper functions
+void print_base_buff(int id){
+		char target_file[LONG_FNAME_LENGTH];
+		trfb_header_t base;
+		sprintf(target_file, "%d.trf", id);
+		FILE *f_ptr = fopen(target_file, "rb");
+        fread(&base, sizeof(trfb_header_t), 1, f_ptr);
+		printf("*~trfb file:\nid: %d\nrate: %d\nflink: %s\nllink: %s\nnlinks: %d\nruntime: %d\nbuild: %d\n",
+		 base.stream_id, base.sample_rate, base.first_file, base.last_file, base.num_links, base.run_time, base.build_state);
 }

@@ -25,6 +25,8 @@ typedef struct trf_header {
 typedef struct prdat_header {
     int stream_id;
     int sample_rate;
+    int run_time;
+    int payload;
     int build_state;
 } prdat_header_t;
 
@@ -45,16 +47,14 @@ int create_new_rawstream(int sample_rate);
 
 int store_raw_chunk(int stream_id, char *buffer_ptr, int sample_rate);
 
-int cap_rawstream(void *stream_ptr);
+int cap_rawstream(int stream_ptr);
 
 //		PROCESSED FILE
-int create_new_processed_file(int rawstream_id);
+int store_processed_chunk(int stream_id, char *buffer_ptr, int chunk_timelength);
 
-int store_processed_chunk(void *stream_ptr, int *buffer_ptr);
+int store_processed_whole(int stream_id, char *buffer_ptr, int whole_timelength);
 
-int store_processed_whole(void *stream_ptr, int *buffer_ptr, int buffer_length);
-
-int cap_processed_file(void *stream_ptr);
+int cap_processed_file(int stream_id, int force_cap);
 
 //****************************
 // Work checkout Functions

@@ -73,6 +73,7 @@ void FS_get_file_name(char *filename_s, int stream_id, int style, int iteration)
 int FS_register_stream(int stream_id);
 int FS_check_file(char *filename);
 int FS_check_stream(int stream_id);
+int FS_get_samplerate(int stream_id);
 
 
 /*creates new rawstream resource for callers to add buffers into
@@ -194,7 +195,7 @@ int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_timelength) {
     
         //NEW ENTRY
     new_entry = fopen(trf_file_s, "wb");
-    printf("\n**fs writeout: '%s', length: %d\n", buffer_ptr, new_header.payload);
+    //printf("\n**fs writeout: '%s', length: %d\n", buffer_ptr, new_header.payload);
     fwrite(&new_header, sizeof(trf_header_t), 1, new_entry);
     fwrite(&buffer_ptr, sizeof(char), new_header.payload, new_entry);
     fclose(new_entry);
@@ -203,12 +204,65 @@ int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_timelength) {
 }
 
 /*Stores away processed chunk, handle update of C-Table*/
-int store_processed_chunk(void *stream_ptr, int *buffer_ptr) {}
+int store_processed_chunk(int stream_id, char *buffer_ptr, int chunk_timelength) {
+    int new_file_flag = 0;
+    int old_payload_size = 0;
+    char prdat_s[LONG_FNAME_LENGTH];
+    char old_payload[MAX_BUFF_SIZE];
+    FILE *prdat;
+    prdat_header_t proc_header;
+
+    FS_get_file_name(prdat_s, stream_id, PRDAT, 0);
+    
+    //check for file existence
+    if(!FS_check_file(prdat_s)) {
+        new_file_flag = 1;
+    }
+
+    if(new_file_flag == 1) {
+        //create header
+        proc_header.stream_id = stream_id;
+        proc_header.sample_rate = FS_get_samplerate(stream_id);
+        proc_header.run_time = 0;
+        proc_header.payload = 0;
+        proc_header.build_state = OPEN;
+
+    } else {
+        //load header + old data
+        prdat = fopen(prdat_s, "rb");
+        fread(&proc_header, sizeof(prdat_header_t), 1, prdat);
+        fread(&old_payload, sizeof(char), proc_header.payload, prdat);
+        fclose(prdat);
+
+    }
+    old_payload_size = proc_header.payload;
+    proc_header.payload += chunk_timelength; /*one of these will have to be scaled!!!*/
+    proc_header.run_time += chunk_timelength;
+
+    prdat = fopen(prdat_s, "wb");
+    fwrite(&proc_header, sizeof(prdat_header_t), 1, prdat);
+    fwrite(&old_payload, sizeof(char), old_payload_size, prdat);
+    fwrite(buffer_ptr, sizeof(char), chunk_timelength, prdat);
+    fclose(prdat);
+
+    return 0;
+}
 
 /*Store away all processed chunks at once, handle update of C-Table*/
-int store_processed_whole(void *stream_ptr, int *buffer_ptr, int buff_length) {}
+int store_processed_whole(int stream_id, char *buffer_ptr, int whole_timelength) {
+    int store_stat, cap_stat;
+    store_stat = store_processed_chunk(stream_id, buffer_ptr, whole_timelength);
+    cap_stat = cap_processed_file(stream_id, 0);
 
-int store_processed_new(prdat_header_t meta_data, int *buffer_ptr, int buff_length) {}
+    if(!store_stat && !cap_stat) {
+        return 0;   //success
+    } else if(store_stat) {
+        return 1;   //issue in writing out the file
+    } else {
+        return 2;   //issue in capping the file
+    }
+
+}
  
 int cap_rawstream(int stream_id) {
     FILE *trfb;
@@ -228,7 +282,13 @@ int cap_rawstream(int stream_id) {
     fclose(trfb);
     return 0;
 }
-int cap_processed_file(void *stream_ptr) {}
+
+/*caps the processed file:
+  - 0: file has been set to COMPLETE state, it does not accept more data
+  - 1: amount of prdat does not match the amount of trf data, file not capped
+  - 2: amount of prdat does not mathc the amount of trf data but override is on, file is capped
+*/
+int cap_processed_file(int stream_id, int force_cap) {}
 
 int read_raw_chunk(void *stream_ptr) {}
 int read_processed_stream(void *stream_ptr) {}
@@ -334,6 +394,17 @@ int FS_check_file(char* filename) {
     return 0;
 }
 
+int FS_get_samplerate(int stream_id) {
+    char target_file[LONG_FNAME_LENGTH];
+    FS_get_file_name(target_file, stream_id, TRFB, 0);
+    trfb_header_t target_header;
+
+    FILE *target_trfb = fopen(target_file, "rb");
+    fread(&target_header, sizeof(trfb_header_t), 1, target_trfb);
+    fclose(target_trfb);
+
+    return target_header.sample_rate;
+}
 /*returns the state of the stream ID
  ToDo: properly implement state check
 */

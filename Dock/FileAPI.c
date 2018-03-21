@@ -3,7 +3,7 @@
 //Senior Design (COE 1896) 2018
 //bk12@pitt.edu
 
-//TODO: what type of pointer should the file and stream pointers be?
+//TODO: -------CONSIDER STANDARDIZING THE EXIT CODES----------- 
 
 /*OVERVIEW OF ARCHITECTURE
 
@@ -67,20 +67,20 @@ enum file_types {
 };
 
 //PROTOTYPES
-int create_stream_id();
+int FS_create_stream_id();
 int create_rawstream_base_file(trfb_header_t meta_data);
 void FS_get_file_name(char *filename_s, int stream_id, int style, int iteration);
 int FS_register_stream(int stream_id);
 int FS_check_file(char *filename);
 int FS_check_stream(int stream_id);
-int FS_get_samplerate(int stream_id);
+trfb_header_t FS_get_trfb(int stream_id);
 
 
 /*creates new rawstream resource for callers to add buffers into
     -returns: id of the resource (int)
 */
 int create_new_rawstream(int sample_rate) {
-    int stream_id = create_stream_id();
+    int stream_id = FS_create_stream_id();
     if (!stream_id) { 
         return 0; }
 
@@ -160,6 +160,7 @@ int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_timelength) {
     if(first_commit_flag == 1) {
         for(i = 0; i < LONG_FNAME_LENGTH; i++) {
             stream_info.first_file[i] = trf_file_s[i];
+            stream_info.readout_ptr[i] = trf_file_s[i];
         }
     }
     for(i = 0; i < LONG_FNAME_LENGTH; i++) {
@@ -197,7 +198,7 @@ int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_timelength) {
     new_entry = fopen(trf_file_s, "wb");
     //printf("\n**fs writeout: '%s', length: %d\n", buffer_ptr, new_header.payload);
     fwrite(&new_header, sizeof(trf_header_t), 1, new_entry);
-    fwrite(&buffer_ptr, sizeof(char), new_header.payload, new_entry);
+    fwrite(buffer_ptr, sizeof(char), new_header.payload, new_entry);
     fclose(new_entry);
 
     return 0;  //success
@@ -210,6 +211,7 @@ int store_processed_chunk(int stream_id, char *buffer_ptr, int chunk_timelength)
     char prdat_s[LONG_FNAME_LENGTH];
     char old_payload[MAX_BUFF_SIZE];
     FILE *prdat;
+    trfb_header_t stream_info;
     prdat_header_t proc_header;
 
     FS_get_file_name(prdat_s, stream_id, PRDAT, 0);
@@ -222,7 +224,8 @@ int store_processed_chunk(int stream_id, char *buffer_ptr, int chunk_timelength)
     if(new_file_flag == 1) {
         //create header
         proc_header.stream_id = stream_id;
-        proc_header.sample_rate = FS_get_samplerate(stream_id);
+        stream_info = FS_get_trfb(stream_id);
+        proc_header.sample_rate = stream_info.sample_rate;
         proc_header.run_time = 0;
         proc_header.payload = 0;
         proc_header.build_state = OPEN;
@@ -290,15 +293,61 @@ int cap_rawstream(int stream_id) {
 */
 int cap_processed_file(int stream_id, int force_cap) {}
 
-int read_raw_chunk(void *stream_ptr) {}
-int read_processed_stream(void *stream_ptr) {}
+/*returns payload size*/
+int read_raw_chunk(int stream_id, trf_header_t *meta_buffer, char *data_buffer, int buffer_cap) {
+    char trfb_s[LONG_FNAME_LENGTH];
+    FS_get_file_name(trfb_s, stream_id, TRFB, 0);
+    if(!FS_check_file(trfb_s)) {
+        return 2;
+    }
+    //TODO: ^^kind of redundant to open and close all these files twice
+    trfb_header_t director = FS_get_trfb(stream_id);
+    
+    if(strcmp(director.readout_ptr, "") == 0) {
+        return 1; //There is no data to read in
+    }
+
+    FILE* target_trf = fopen(director.readout_ptr, "rb");
+    fread(meta_buffer, sizeof(trf_header_t), 1, target_trf);
+
+    if(buffer_cap < MAX_BUFF_SIZE) {
+        //Protects from segfaults but my not read out whole target
+        fread(data_buffer, sizeof(char), buffer_cap, target_trf);
+    } else {
+        fread(data_buffer, sizeof(char), MAX_BUFF_SIZE, target_trf);
+    }
+    fclose(target_trf);
+    
+    return 0;
+}
+int read_processed_stream(int stream_id, prdat_header_t *meta_buffer, char *data_buffer, int buffer_cap) {
+    
+    char prdat_s[LONG_FNAME_LENGTH];
+    FS_get_file_name(prdat_s, stream_id, PRDAT, 0);
+    if(!FS_check_file(prdat_s)) {
+        return 2;
+    }
+
+    FILE* target_trf = fopen(prdat_s, "rb");
+    fread(meta_buffer, sizeof(prdat_header_t), 1, target_trf);
+
+    if(buffer_cap < MAX_BUFF_SIZE) {
+        //Protects from segfaults but my not read out whole target
+        fread(data_buffer, sizeof(char), buffer_cap, target_trf);
+    } else {
+        fread(data_buffer, sizeof(char), MAX_BUFF_SIZE, target_trf);
+    }
+    fclose(target_trf);
+    
+    return 0;
+}
 
 int db_backup() {}
 int db_restore_db() {}
 int db_restore_file() {}
 
 //Internal functionalities
-int create_stream_id() {
+int FS_create_stream_id() {
     //id selection function here
     int id_state;
 
@@ -394,7 +443,7 @@ int FS_check_file(char* filename) {
     return 0;
 }
 
-int FS_get_samplerate(int stream_id) {
+trfb_header_t FS_get_trfb(int stream_id) {
     char target_file[LONG_FNAME_LENGTH];
     FS_get_file_name(target_file, stream_id, TRFB, 0);
     trfb_header_t target_header;
@@ -403,8 +452,10 @@ int FS_get_samplerate(int stream_id) {
     fread(&target_header, sizeof(trfb_header_t), 1, target_trfb);
     fclose(target_trfb);
 
-    return target_header.sample_rate;
+    return target_header;
 }
+
+
 /*returns the state of the stream ID
  ToDo: properly implement state check
 */

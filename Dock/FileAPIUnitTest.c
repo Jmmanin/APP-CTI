@@ -2,9 +2,11 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include <time.h>
 #include "FileAPI.h"
 
-#define NUM_TESTS 1  /*Tests in the battery*/
+#define NUM_TESTS 4  /*Tests in the battery*/
 
 void print_base_buff(int base);
 
@@ -114,6 +116,107 @@ int test_cap_rawstream() {
 	}
 } 
 
+int store_procbuff_test() {
+	int resp0, resp1, resp2, resp3;
+	int id = create_new_rawstream(1);
+
+	printf("\nTest writing successive processed buffers back in (see file %d.prdat\n", id);
+	char *first_store = "A long time ago in a galaxy far far away, Turmoil has engulfed the \
+	 galatic republic, The taxation of trade routes to outlying star systems is in despute.";
+	char *second_store = "Ok, here we go. Focus. Speed.I am speed. One winner, 42 losers. I eat \
+	 losers for breakfast. Breakfast. Wait should I eat breakfast? A little brecky could be good...";
+	char *third_store = "Im a third buffer. What? Im out of ideas";
+	char *reject_store = "You shouldn't see me.";
+
+	store_processed_chunk(id, first_store, strlen(first_store));
+	store_processed_chunk(id, second_store, strlen(second_store));
+	store_processed_chunk(id, third_store, strlen(third_store));
+
+	return 1;
+}
+
+int timing_test() {
+	clock_t start, end;
+	double create_ti, storeRaw_ti, storeProc_ti, readOut_ti;
+	trf_header_t meta_b;
+	int id, i, resp0;
+	char value = 0xFF;
+	char *smallBuff = "I served my nickel you come and take me!";
+	char medBuff[200];
+	char largeBuff[MAX_BUFF_SIZE];
+	char readinBuff[MAX_BUFF_SIZE];
+
+	for(i = 0; i < 200; i++) {
+		if(value == 0x00) {
+			value = 0xFF;
+		}
+		medBuff[i] = value;
+		value -= 1;
+	}
+
+	for(i = 0;  i < MAX_BUFF_SIZE; i++) {
+		if(value == 0x00) {
+			value = 0xFF;
+		}
+		largeBuff[i] = value;
+		value -= 1;
+	}
+
+	printf("\nFunctionality time test:\n");
+	FS_Init();
+
+	start = clock();
+	id = create_new_rawstream(1);
+	end = clock();
+	create_ti = ((double) (end - start)) / CLOCKS_PER_SEC;
+	printf("\ncreate_new_rawstream() time: %f\n", create_ti);
+
+	start = clock();
+	store_raw_chunk(id, smallBuff, 40);
+	end = clock();
+	storeRaw_ti = ((double) (end - start)) / CLOCKS_PER_SEC;
+	printf("\nstore_raw_chunk(small) time: %f\n", storeRaw_ti);
+
+	start = clock();
+	store_raw_chunk(id, medBuff, 200);
+	end = clock();
+	storeRaw_ti = ((double) (end - start)) / CLOCKS_PER_SEC;
+	printf("\nstore_raw_chunk(medium) time: %f\n", storeRaw_ti);
+
+	start = clock();
+	store_raw_chunk(id, largeBuff, MAX_BUFF_SIZE);
+	end = clock();
+	storeRaw_ti = ((double) (end - start)) / CLOCKS_PER_SEC;
+	printf("\nstore_raw_chunk(large) time: %f\n", storeRaw_ti);
+
+	start = clock();
+	read_raw_chunk(id, &meta_b, readinBuff, MAX_BUFF_SIZE);
+	end = clock();
+	readOut_ti = ((double) (end - start)) / CLOCKS_PER_SEC;
+	printf("\nread_raw_chunk() time: %f\n", readOut_ti);
+
+	start = clock();
+	store_processed_chunk(id, smallBuff, 40);
+	end = clock();
+	storeProc_ti = ((double) (end - start)) / CLOCKS_PER_SEC;
+	printf("\nstore_processed_chunk(small) time: %f\n", storeProc_ti);
+
+	start = clock();
+	store_processed_chunk(id, medBuff, 200);
+	end = clock();
+	storeProc_ti = ((double) (end - start)) / CLOCKS_PER_SEC;
+	printf("\nstore_processed_chunk(medium) time: %f\n", storeProc_ti);
+
+	start = clock();
+	resp0 = store_processed_chunk(id, largeBuff, MAX_BUFF_SIZE);
+	end = clock();
+	storeProc_ti = ((double) (end - start)) / CLOCKS_PER_SEC;
+	printf("\nstore_processed_chunk(large) time: %f\n", storeProc_ti);
+	printf("\nresponse: %d", resp0);
+
+	return 0;
+}
+
 int complete_main_unit_test() {
 	int id;
 	id = create_new_rawstream(1); //create a rawstream of 1 sample/second
@@ -132,7 +235,11 @@ int complete_main_unit_test() {
 int main() {
 
 	//ADD NEW TEST BATTERY FUNCTIONS
-	int(*test_battery[])() = {/*filestream_create_test, store_raw_chunk_test,*/ test_cap_rawstream};
+	int(*test_battery[])() = {filestream_create_test,
+							  store_raw_chunk_test,
+							  test_cap_rawstream,
+							  timing_test,
+							  store_procbuff_test};
 	
 	//Test battery call
 	int i;

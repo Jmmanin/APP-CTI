@@ -34,28 +34,17 @@
 #define MAX_STREAM_TIME  300  /*length of time in seconds a single stream will be constrained to*/
 #define MAX_SAMPLE_RATE 60 /*60hz max sample rate*/
 #define SAMPLE_SIZE 1 /*standardized sample size*/
-#define MAX_BUFF_SIZE (MAX_STREAM_TIME * MAX_SAMPLE_RATE * SAMPLE_SIZE) /*largest possible buffer size*/
+#define PRDAT_SAMPLE_SIZE 1 
+#define MAX_TRFBUFF_SIZE (MAX_STREAM_TIME * MAX_SAMPLE_RATE * SAMPLE_SIZE)
+#define MAX_BUFF_SIZE (MAX_STREAM_TIME * MAX_SAMPLE_RATE * PRDAT_SAMPLE_SIZE) /*largest possible buffer size*/
 
 //structs and enums
 
 /*state for whether stream accepts new data*/
 enum build_states {
-    OPEN,
-    COMPLETE
-};
-
-/*current state of completeness for a stream*/
-enum stream_states {
-    NEW,
-    RAW,
-    PARTIAL,
-    DONE
-};
-
-enum constraint_types {
-    NONE,
-    TIME,
-    BYTES
+    OPEN,      /*Accepting new data chunks*/
+    UPTODATE,  /*Accepting new data chunks but */
+    COMPLETE   /*Not accepting new data*/
 };
 
 /*types of files existant in the system*/
@@ -67,9 +56,9 @@ enum file_types {
 };
 
 //PROTOTYPES
-int FS_create_stream_id();
-int create_rawstream_base_file(trfb_header_t meta_data);
 void FS_get_file_name(char *filename_s, int stream_id, int style, int iteration);
+int FS_create_stream_id();
+int FS_write_rawstream_base_file(trfb_header_t meta_data);
 int FS_register_stream(int stream_id);
 int FS_check_file(char *filename);
 int FS_check_stream(int stream_id);
@@ -84,12 +73,14 @@ trfb_header_t FS_get_trfb(int stream_id);
 int create_new_rawstream(int sample_rate) {
     int stream_id = FS_create_stream_id();
     if (!stream_id) { 
-        return 0; }
+        return 0;  //Zero is never a valid stream_id
+    }
 
-    trfb_header_t base_header = {stream_id, sample_rate, "", "", 0, 0, NEW};
+    trfb_header_t base_header = {stream_id, sample_rate, "", "", "", 0, 0, UPTODATE};
 
-    if (!create_rawstream_base_file(base_header)) { 
-        return stream_id; }
+    if (!FS_write_rawstream_base_file(base_header)) { 
+        return stream_id;
+    }
     return 0;
 
 }
@@ -110,7 +101,7 @@ int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_timelength) {
     
     char trf_file_s[LONG_FNAME_LENGTH];
     char trfb_s[STD_FNAME_LENGTH];
-    char prevtrail_payload[MAX_BUFF_SIZE];
+    char prevtrail_payload[MAX_TRFBUFF_SIZE];
     
     FILE *trfb;
     FILE *trailing_trf;
@@ -129,7 +120,11 @@ int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_timelength) {
 
     if(stream_info.build_state == COMPLETE) {
         return 2;  //stream is not accepting chunks
+    } else if(stream_info.build_state == UPTODATE) {
+        stream_info.build_state = OPEN;
+        FS_add_to_q(stream_id);
     }
+
     if(stream_info.num_links == 0) {
         first_commit_flag = 1;
     }
@@ -173,9 +168,13 @@ int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_timelength) {
             //write back to file
         trailing_trf = fopen(new_header.prev_file, "wb");
         fwrite(&prevtrail_header, sizeof(trf_header_t), 1, trailing_trf);
-        fwrite(&prevtrail_payload, sizeof(char), MAX_BUFF_SIZE, trailing_trf);
+        fwrite(&prevtrail_payload, sizeof(char), prevtrail_header.payload, trailing_trf);
         fclose; 
     }  
+
+    if(stream_info.run_time >= MAX_STREAM_TIME) {
+        stream_info.build_state = COMPLETE;
+    }
 
     //Writes back out to files
         //BASE FILE
@@ -194,7 +193,7 @@ int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_timelength) {
 }
 
 /*Stores away processed chunk, handle update of C-Table*/
-int store_processed_chunk(int stream_id, char *buffer_ptr, int chunk_timelength) {
+int store_processed_chunk(int stream_id, char *buffer_ptr, int chunk_payloadsize) {
     int new_file_flag = 0;
     int old_payload_size = 0;
     char prdat_s[LONG_FNAME_LENGTH];
@@ -228,22 +227,22 @@ int store_processed_chunk(int stream_id, char *buffer_ptr, int chunk_timelength)
 
     }
     old_payload_size = proc_header.payload;
-    proc_header.payload += chunk_timelength; /*one of these will have to be scaled!!!*/
-    proc_header.run_time += chunk_timelength;
+    proc_header.payload += chunk_payloadsize; /*one of these will have to be scaled!!!*/
+    proc_header.run_time += chunk_payloadsize / (PRDAT_SAMPLE_SIZE * proc_header.sample_rate);
 
     prdat = fopen(prdat_s, "wb");
     fwrite(&proc_header, sizeof(prdat_header_t), 1, prdat);
     fwrite(&old_payload, sizeof(char), old_payload_size, prdat);
-    fwrite(buffer_ptr, sizeof(char), chunk_timelength, prdat);
+    fwrite(buffer_ptr, sizeof(char), chunk_payloadsize, prdat);
     fclose(prdat);
 
     return 0;
 }
 
 /*Store away all processed chunks at once, handle update of C-Table*/
-int store_processed_whole(int stream_id, char *buffer_ptr, int whole_timelength) {
+int store_processed_whole(int stream_id, char *buffer_ptr, int whole_payloadsize) {
     int store_stat, cap_stat;
-    store_stat = store_processed_chunk(stream_id, buffer_ptr, whole_timelength);
+    store_stat = store_processed_chunk(stream_id, buffer_ptr, whole_payloadsize);
     cap_stat = cap_processed_file(stream_id, 0);
 
     if(!store_stat && !cap_stat) {
@@ -255,24 +254,23 @@ int store_processed_whole(int stream_id, char *buffer_ptr, int whole_timelength)
     }
 
 }
- 
+
+/*caps the processed file:
+  - 0: file has been set to COMPLETE state, it does not accept more data
+  - 1: a non existent stream is targeted. Nothing happened.
+*/ 
 int cap_rawstream(int stream_id) {
-    FILE *trfb;
     char trfb_s[LONG_FNAME_LENGTH];
-    trfb_header_t stream_info;
-
     FS_get_file_name(trfb_s, stream_id, TRFB, 0);
+    if(!FS_check_file(trfb_s)) {
+        return 1;
+    }
 
-    trfb = fopen(trfb_s, "rb");  //NOTE: Opening and closing files could be their own functions
-    fread(&stream_info, sizeof(trfb_header_t), 1, trfb);
-    fclose(trfb);
-
+    trfb_header_t stream_info = FS_get_trfb(stream_id);
     stream_info.build_state = COMPLETE;
-    
-    trfb = fopen(trfb_s, "wb");
-    fwrite(&stream_info, sizeof(trfb_header_t), 1, trfb);
-    fclose(trfb);
+    FS_write_rawstream_base_file(stream_info);
     return 0;
+
 }
 
 /*caps the processed file:
@@ -285,6 +283,11 @@ int cap_processed_file(int stream_id, int force_cap) {
     char prdat_s[LONG_FNAME_LENGTH];
     char prdat_buff[MAX_BUFF_SIZE];
     prdat_header_t proc_header;
+    trfb_header_t stream_header = FS_get_trfb(stream_id);
+
+    if((stream_header.build_state == COMPLETE) && !force_cap) {
+        return 1;
+    }
 
     FS_get_file_name(prdat_s, stream_id, PRDAT, 0);
 
@@ -299,6 +302,10 @@ int cap_processed_file(int stream_id, int force_cap) {
     fwrite(&proc_header, sizeof(prdat_header_t), 1, prdat);
     fwrite(&prdat_buff, sizeof(char), proc_header.payload, prdat);
     fclose(prdat);
+    
+    if(stream_header.build_state == COMPLETE) {
+        return 2;
+    }
     return 0;
 }
 
@@ -341,6 +348,11 @@ int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffe
     for(i = 0; i < LONG_FNAME_LENGTH; i++) {
         target_base_meta.readout_ptr[i] = target_meta.next_file[i];
     }
+    if(strcmp(target_base_meta.readout_ptr, "") == 0) {
+        if(target_base_meta.build_state != COMPLETE) {
+            target_base_meta.build_state = UPTODATE;
+        }
+    }
     
     FS_get_file_name(trfb_s, stream_id, TRFB, 0);
     FILE *trfb = fopen(trfb_s, "wb");
@@ -359,7 +371,7 @@ int read_processed_stream(int stream_id, prdat_header_t *meta_buffer, char *data
     char prdat_s[LONG_FNAME_LENGTH];
     FS_get_file_name(prdat_s, stream_id, PRDAT, 0);
     if(!FS_check_file(prdat_s)) {
-        return 2;
+        return 1;
     }
 
     FILE* target_trf = fopen(prdat_s, "rb");
@@ -401,7 +413,7 @@ int FS_create_stream_id() {
     fclose(curr_state);
     return id_state;
 }
-int create_rawstream_base_file(trfb_header_t file_info) {
+int FS_write_rawstream_base_file(trfb_header_t file_info) {
 
     char filename_string[STD_FNAME_LENGTH];
     FS_get_file_name(filename_string, file_info.stream_id, TRFB, 0);

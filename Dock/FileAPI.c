@@ -34,7 +34,6 @@
 #define MAX_STREAM_TIME  300  /*length of time in seconds a single stream will be constrained to*/
 #define MAX_SAMPLE_RATE 60 /*60hz max sample rate*/
 #define SAMPLE_SIZE 1 /*standardized sample size*/
-#define MAX_TRFBUFF_SIZE (MAX_STREAM_TIME * MAX_SAMPLE_RATE * SAMPLE_SIZE)
 #define MAX_BUFF_SIZE (MAX_STREAM_TIME * MAX_SAMPLE_RATE * SAMPLE_SIZE) /*largest possible buffer size*/
 
 //structs and enums
@@ -122,7 +121,7 @@ int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_timelength) {
     
     char trf_file_s[LONG_FNAME_LENGTH];
     char trfb_s[STD_FNAME_LENGTH];
-    char prevtrail_payload[MAX_TRFBUFF_SIZE];
+    char prevtrail_payload[MAX_BUFF_SIZE];
     
     FILE *trfb;
     FILE *trailing_trf;
@@ -185,7 +184,7 @@ int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_timelength) {
             //write back to file
         trailing_trf = fopen(new_header.prev_file, "wb");
         fwrite(&prevtrail_header, sizeof(trf_header_t), 1, trailing_trf);
-        fwrite(&prevtrail_payload, sizeof(char), MAX_TRFBUFF_SIZE, trailing_trf);
+        fwrite(&prevtrail_payload, sizeof(char), MAX_BUFF_SIZE, trailing_trf);
         fclose; 
     }  
 
@@ -326,7 +325,7 @@ int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffe
     int i;
     trf_header_t target_meta;
     trfb_header_t target_base_meta;
-    char target_buff[MAX_TRFBUFF_SIZE];
+    char target_buff[MAX_BUFF_SIZE];
     char trfb_s[LONG_FNAME_LENGTH];
 
     //setup target stream
@@ -638,11 +637,11 @@ int read_raw_chunk(int stream_id, trf_header_t *meta_buffer, char *data_buffer, 
     FILE* target_trf = fopen(director.readout_ptr, "rb");
     fread(meta_buffer, sizeof(trf_header_t), 1, target_trf);
 
-    if(buffer_cap < MAX_TRFBUFF_SIZE) {
+    if(buffer_cap < MAX_BUFF_SIZE) {
         //Protects from segfaults but my not read out whole target
         fread(data_buffer, sizeof(char), buffer_cap, target_trf);
     } else {
-        fread(data_buffer, sizeof(char), MAX_TRFBUFF_SIZE, target_trf);
+        fread(data_buffer, sizeof(char), MAX_BUFF_SIZE, target_trf);
     }
     fclose(target_trf);
     

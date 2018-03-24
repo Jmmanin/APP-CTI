@@ -6,7 +6,7 @@
 #include <time.h>
 #include "FileAPI.h"
 
-#define NUM_TESTS 4  /*Tests in the battery*/
+#define NUM_TESTS 1  /*Tests in the battery*/
 
 void print_base_buff(int base);
 
@@ -68,7 +68,7 @@ int store_raw_chunk_test()
 		printf("store1 exit code: %d\n", response1);
 		printf("store2 exit code: %d\n\n", response2);
 
-		sprintf(target_file, "%d_0.trf", id);
+		sprintf(target_file, "storage/%d_0.trf", id);
 		FILE *f_ptr = fopen(target_file, "rb");
         fread(&header1, sizeof(trf_header_t), 1, f_ptr);
         fread(&buffer_cmp1, sizeof(char), header1.payload, f_ptr);
@@ -77,10 +77,10 @@ int store_raw_chunk_test()
 		printf("_0.trf: id %d\n rate: %d\n timeslice: %d\n payload: %d\n pfile: %s\n nfile: %s\n\n",
      		header1.stream_id, header1.sample_rate, header1.time_slice, header1.payload, header1.prev_file, header1.next_file);
 
-		sprintf(target_file, "%d_1.trf", id);
+		sprintf(target_file, "storage/%d_1.trf", id);
 		f_ptr = fopen(target_file, "rb");
         fread(&header2, sizeof(trf_header_t), 1, f_ptr);
-        fread(&buffer_cmp2, sizeof(char), header1.payload, f_ptr);
+        fread(&buffer_cmp2, sizeof(char), header2.payload, f_ptr);
         fclose(f_ptr);
 
 		printf("_1.trf: id %d\n rate: %d\n timeslice: %d\n payload: %d\n pfile: %s\n nfile: %s\n\n",
@@ -135,7 +135,7 @@ int store_procbuff_test() {
 	return 1;
 }
 
-int timing_test() {
+/*int timing_test() {
 	clock_t start, end;
 	double create_ti, storeRaw_ti, storeProc_ti, readOut_ti;
 	trf_header_t meta_b;
@@ -215,7 +215,7 @@ int timing_test() {
 	printf("\nresponse: %d", resp0);
 
 	return 0;
-}
+}*/
 
 int complete_main_unit_test() {
 	int id;
@@ -235,11 +235,11 @@ int complete_main_unit_test() {
 int main() {
 
 	//ADD NEW TEST BATTERY FUNCTIONS
-	int(*test_battery[])() = {filestream_create_test,
+	int(*test_battery[])() = {/*filestream_create_test,*/
 							  store_raw_chunk_test,
-							  test_cap_rawstream,
-							  timing_test,
-							  store_procbuff_test};
+							  /*test_cap_rawstream,*/
+							  /*timing_test,*/
+							  /*store_procbuff_test*/};
 	
 	//Test battery call
 	int i;

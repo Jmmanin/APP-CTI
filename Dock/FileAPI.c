@@ -22,10 +22,10 @@
 #include "FileAPI.h"
 
 //defines and global state declares
-#define FS_TABLE "fs_fileSystem.txt"
-#define STATE_TABLE "state.bin"
-#define TRF_QUEUE "fs_rawQueue.bin"
-#define CHECKOUT_TABLE "fs_coTable.bin"
+#define FS_TABLE "storage/fs_fileSystem.txt"
+#define STATE_TABLE "storage/state.bin"
+#define TRF_QUEUE "storage/fs_rawQueue.bin"
+#define CHECKOUT_TABLE "storage/fs_coTable.bin"
 
 #define SHORT_FNAME_LENGTH 20  /*The lengths of buffers commonly used for storing filename strings*/
 #define STD_FNAME_LENGTH 30
@@ -73,6 +73,8 @@ void FS_get_file_name(char *filename_s, int stream_id, int style, int iteration)
 int FS_register_stream(int stream_id);
 int FS_check_file(char *filename);
 int FS_check_stream(int stream_id);
+int FS_pull_from_q();
+int FS_add_to_q(int stream_id);
 trfb_header_t FS_get_trfb(int stream_id);
 
 
@@ -90,19 +92,6 @@ int create_new_rawstream(int sample_rate) {
         return stream_id; }
     return 0;
 
-}
-
-
-/*creates new processed data file for */
-int create_new_processed_file(int rawstream_id) {
-    /*prdat_header_t proc_header = {rawstream_id, 0, OPEN};
-    FILE *new_proc_file = fopen(FS_get_file_name(rawstream_id, PRDAT, 0), "wb");
-
-    if (fwrite(&proc_header, sizeof(prdat_header_t), 1, new_proc_file) != 1) {
-	    return 1;
-    }*/
-
-    return 0;
 }
 
 /*pulls a buffered set of data into a raw file stream
@@ -359,7 +348,7 @@ int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffe
     fclose(trfb);
 
     //close out function
-    chunk_buff = &target_buff;
+    chunk_buff = target_buff;
     meta_buffer = &target_meta;
     return stream_id;
 
@@ -441,15 +430,15 @@ void FS_get_file_name(char *filename_s, int stream_id, int style, int iteration)
     switch (style) {
         case TRF:
       	//follows the pattern of: <stream_id>_<iteration>.trf
-            sprintf(filename_s, "%d_%d.trf", stream_id, iteration);
+            sprintf(filename_s, "storage/%d_%d.trf", stream_id, iteration);
             break;
         case TRFB:
       	//follows the pattern of: <stream_id>.trf
-            sprintf(filename_s, "%d.trf", stream_id);
+            sprintf(filename_s, "storage/%d.trf", stream_id);
             break;
         case PRDAT:
       	//follows the pattern of: <stream_id>.prdat
-            sprintf(filename_s, "%d.prdat", stream_id);
+            sprintf(filename_s, "storage/%d.prdat", stream_id);
             break;
     }
     return;
@@ -552,11 +541,12 @@ int FS_pull_from_q() {
     //FILE SYSTEM LOOKUP TABLE (fs-table) BOOLEAN
 int FS_register_stream(int stream_id) {
     char stream_id_s[SHORT_FNAME_LENGTH];
+    char trfb_s[LONG_FNAME_LENGTH];
+    FS_get_file_name(trfb_s, stream_id, TRFB, 0);
     //if stream is in table throw 1 exit
-    if (FS_check_stream(stream_id)) {
+    if (!FS_check_file(trfb_s)) {
    	//printf("***FS: file already exists: not registering.");
         return 0;
-   
     } 
     else {
         sprintf(stream_id_s, "%d\n", stream_id);

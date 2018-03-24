@@ -5,6 +5,8 @@ Includes calls for
 - reading and viewing the inner file system
 - managing the inner file system
 */
+
+//TODO these need to be made into macros! Not just defines so they are available as part of the module
 #define MAX_STREAM_TIME  300  /*length of time in seconds a single stream will be constrained to*/
 #define MAX_SAMPLE_RATE 60 /*60hz max sample rate*/
 #define SAMPLE_SIZE 1 /*standardized sample size*/
@@ -64,10 +66,9 @@ int cap_processed_file(int stream_id, int force_cap);
 
 //****************************
 // Work checkout Functions - depreciated
-//****************************
-int checkout_raw_chunk();
+//***************************
 
-int checkout_raw_chunk(void *stream_ptr);
+int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffer);
 
 //****************************
 //Read/Traverse Functions

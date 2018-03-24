@@ -291,35 +291,80 @@ int cap_rawstream(int stream_id) {
   - 1: amount of prdat does not match the amount of trf data, file not capped
   - 2: amount of prdat does not mathc the amount of trf data but override is on, file is capped
 */
-int cap_processed_file(int stream_id, int force_cap) {}
+int cap_processed_file(int stream_id, int force_cap) {
+    FILE *prdat;
+    char prdat_s[LONG_FNAME_LENGTH];
+    char prdat_buff[MAX_BUFF_SIZE];
+    prdat_header_t proc_header;
 
-/*returns payload size*/
-int read_raw_chunk(int stream_id, trf_header_t *meta_buffer, char *data_buffer, int buffer_cap) {
-    char trfb_s[LONG_FNAME_LENGTH];
-    FS_get_file_name(trfb_s, stream_id, TRFB, 0);
-    if(!FS_check_file(trfb_s)) {
-        return 2;
-    }
-    //TODO: ^^kind of redundant to open and close all these files twice
-    trfb_header_t director = FS_get_trfb(stream_id);
+    FS_get_file_name(prdat_s, stream_id, PRDAT, 0);
+
+    prdat = fopen(prdat_s, "rb");  //NOTE: Opening and closing files could be their own functions
+    fread(&proc_header, sizeof(prdat_header_t), 1, prdat);
+    fread(&prdat_buff, sizeof(char), proc_header.payload, prdat);
+    fclose(prdat);
+
+    proc_header.build_state = COMPLETE;
     
-    if(strcmp(director.readout_ptr, "") == 0) {
-        return 1; //There is no data to read in
-    }
-
-    FILE* target_trf = fopen(director.readout_ptr, "rb");
-    fread(meta_buffer, sizeof(trf_header_t), 1, target_trf);
-
-    if(buffer_cap < MAX_BUFF_SIZE) {
-        //Protects from segfaults but my not read out whole target
-        fread(data_buffer, sizeof(char), buffer_cap, target_trf);
-    } else {
-        fread(data_buffer, sizeof(char), MAX_BUFF_SIZE, target_trf);
-    }
-    fclose(target_trf);
-    
+    prdat = fopen(prdat_s, "wb");
+    fwrite(&proc_header, sizeof(prdat_header_t), 1, prdat);
+    fwrite(&prdat_buff, sizeof(char), proc_header.payload, prdat);
+    fclose(prdat);
     return 0;
 }
+
+/*reads out a file to a buffer, and properly checks out the file from the work system
+stream_id input:
+    0 - gets a filestream from the queue and its next work buffer
+    n - get the next work buffer from the specified queue
+return:
+    0 - no data to read out
+    n > 0 - stream_id work buffer belongs to. 
+*/
+int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffer) {
+    int i;
+    trf_header_t target_meta;
+    trfb_header_t target_base_meta;
+    char target_buff[MAX_BUFF_SIZE];
+    char trfb_s[LONG_FNAME_LENGTH];
+
+    //setup target stream
+    if(stream_id == 0) {
+        stream_id = FS_pull_from_q();
+        if(stream_id == 0) {
+            return 0; //there is nothing in the queue to work on
+        }
+    }
+
+    target_base_meta = FS_get_trfb(stream_id);
+    if(strcmp(target_base_meta.readout_ptr, "") == 0) {
+        return 0;  //there is nothing in the stream to work on. 
+    }
+
+
+    //readout target file
+    FILE *target_trf = fopen(target_base_meta.readout_ptr, "rb");
+    fread(&target_meta, sizeof(trf_header_t), 1, target_trf);
+    fread(&target_buff, sizeof(char), target_meta.payload, target_trf);
+    fclose(target_trf);
+
+    //update pointers
+    for(i = 0; i < LONG_FNAME_LENGTH; i++) {
+        target_base_meta.readout_ptr[i] = target_meta.next_file[i];
+    }
+    
+    FS_get_file_name(trfb_s, stream_id, TRFB, 0);
+    FILE *trfb = fopen(trfb_s, "wb");
+    fwrite(&target_base_meta, sizeof(trfb_header_t), 1, trfb);
+    fclose(trfb);
+
+    //close out function
+    chunk_buff = &target_buff;
+    meta_buffer = &target_meta;
+    return stream_id;
+
+}
+
 int read_processed_stream(int stream_id, prdat_header_t *meta_buffer, char *data_buffer, int buffer_cap) {
     
     char prdat_s[LONG_FNAME_LENGTH];
@@ -342,7 +387,7 @@ int read_processed_stream(int stream_id, prdat_header_t *meta_buffer, char *data
     return 0;
 }
 
-int db_backup() {}
+int db_backup() {} /*lol need to implement these eventually*/
 int db_restore_db() {}
 int db_restore_file() {}
 
@@ -409,6 +454,99 @@ void FS_get_file_name(char *filename_s, int stream_id, int style, int iteration)
     }
     return;
 }
+/*returns 0 if add, 1 if cannot add as max queue size reached*/
+int FS_add_to_q(int stream_id) {
+    int q_length; 
+    int qbuf_length = 16;
+    int *qbuf;
+    
+    FILE *work_q = fopen(TRF_QUEUE, "rb");
+    fread(&q_length, sizeof(int), 1, work_q);
+
+    q_length += 1;
+
+    if(q_length > qbuf_length) {
+        qbuf_length = qbuf_length * 4;
+        if(q_length > qbuf_length) {
+            qbuf_length = qbuf_length * 4;
+            if(q_length > qbuf_length) {
+                qbuf_length = qbuf_length * 4;
+                if(q_length > qbuf_length) {
+                    return 1;
+                } else {
+                    int qbuf_large[256];
+                    qbuf = qbuf_large;
+                }
+            }
+        } else {
+            int qbuf_med[64];
+            qbuf = qbuf_med;
+        }
+    } else {
+        int qbuf_sm[16];
+        qbuf = qbuf_sm;
+    }
+
+    fread(qbuf, sizeof(int), (q_length - 1), work_q);
+    fclose(work_q);
+
+    qbuf[q_length-1] = stream_id;
+
+    work_q = fopen(TRF_QUEUE, "wb");
+    fwrite(&q_length, sizeof(int), 1, work_q);
+    fwrite(&qbuf[1], sizeof(int), q_length, work_q);
+    fclose(work_q);
+
+    return 0;
+}
+
+/*returns stream_id of work to be processed and strikes the id from the queue*/
+int FS_pull_from_q() {
+    int q_length; 
+    int qbuf_length = 16;
+    int *qbuf;
+    
+    FILE *work_q = fopen(TRF_QUEUE, "rb");
+    fread(&q_length, sizeof(int), 1, work_q);
+
+    if(q_length == 0) {
+        fclose(work_q);
+        return 0; //no work to check out
+    }
+
+    if(q_length > qbuf_length) {
+        qbuf_length = qbuf_length * 4;
+        if(q_length > qbuf_length) {
+            qbuf_length = qbuf_length * 4;
+            if(q_length > qbuf_length) {
+                qbuf_length = qbuf_length * 4;
+                if(q_length > qbuf_length) {
+                    return 0;
+                } else {
+                    int qbuf_large[256];
+                    qbuf = qbuf_large;
+                }
+            }
+        } else {
+            int qbuf_med[64];
+            qbuf = qbuf_med;
+        }
+    } else {
+        int qbuf_sm[16];
+        qbuf = qbuf_sm;
+    }
+
+    fread(qbuf, sizeof(int), q_length, work_q);
+    fclose(work_q);
+
+    q_length -= 1;
+    work_q = fopen(TRF_QUEUE, "wb");
+    fwrite(&q_length, sizeof(int), 1, work_q);
+    fwrite(&qbuf[1], sizeof(int), q_length, work_q);
+    fclose(work_q);
+
+    return qbuf[0];
+}
 
 //MANAGEMENT TABLE CALLS
     //FILE SYSTEM LOOKUP TABLE (fs-table) BOOLEAN
@@ -455,13 +593,6 @@ trfb_header_t FS_get_trfb(int stream_id) {
     return target_header;
 }
 
-
-/*returns the state of the stream ID
- ToDo: properly implement state check
-*/
-int FS_check_stream(int stream_id) { 
-    return 0; }
-
 //Ensure neccessary files are present for work, creates if not
 void FS_Init() {
     //intial values
@@ -479,4 +610,40 @@ void FS_Init() {
         FILE *fs_table = fopen(FS_TABLE, "a"); //creates empty file
         fclose(fs_table);
     }
+
+    //check for work queue
+    if(!FS_check_file(TRF_QUEUE)) {
+        int input = 0;
+        FILE *trf_queue = fopen(TRF_QUEUE, "wb");
+        fwrite(&input, sizeof(int), 1, trf_queue);
+        fclose(trf_queue);
+    }
 }
+
+/*replaced with checkout_raw_chunk
+int read_raw_chunk(int stream_id, trf_header_t *meta_buffer, char *data_buffer, int buffer_cap) {
+    char trfb_s[LONG_FNAME_LENGTH];
+    FS_get_file_name(trfb_s, stream_id, TRFB, 0);
+    if(!FS_check_file(trfb_s)) {
+        return 2;
+    }
+    //TODO: ^^kind of redundant to open and close all these files twice
+    trfb_header_t director = FS_get_trfb(stream_id);
+    
+    if(strcmp(director.readout_ptr, "") == 0) {
+        return 1; //There is no data to read in
+    }
+
+    FILE* target_trf = fopen(director.readout_ptr, "rb");
+    fread(meta_buffer, sizeof(trf_header_t), 1, target_trf);
+
+    if(buffer_cap < MAX_BUFF_SIZE) {
+        //Protects from segfaults but my not read out whole target
+        fread(data_buffer, sizeof(char), buffer_cap, target_trf);
+    } else {
+        fread(data_buffer, sizeof(char), MAX_BUFF_SIZE, target_trf);
+    }
+    fclose(target_trf);
+    
+    return 0;
+}*/

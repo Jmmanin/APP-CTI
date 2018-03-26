@@ -22,6 +22,7 @@
     //used to communicate between work threads
 typedef struct thread_state {
     int targetted_stream;  //w->m
+    int internal_stat;     //w->m
     int exit_code;         //w->m
     int shutdown;          //m->w
     char msg[MSG_SIZE];    //m<->w
@@ -40,6 +41,7 @@ void *input_manager();
 void S_Init_CommBlock();
 void S_flush_CommBlock(thread_state_t *target);
 void S_Thread_Cmd_Relay(char cmd);
+void S_View_Monitior();
 
 
 int main(int argc, char *argv[]) {
@@ -54,7 +56,7 @@ int main(int argc, char *argv[]) {
     S_Init_CommBlock();
 
     //thread set up
-    /*if(pthread_create(&thread_collection[0], NULL, dock_manager, NULL)) {
+    if(pthread_create(&thread_collection[0], NULL, dock_manager, NULL)) {
         printf("Failed to create dock manager\n");
     }
     if(pthread_create(&thread_collection[1], NULL, transform_manager, NULL)) {
@@ -62,7 +64,7 @@ int main(int argc, char *argv[]) {
     }
     if(pthread_create(&thread_collection[2], NULL, dps_manager, NULL)) {
         printf("Failed to create DPS manager\n");
-    }*/
+    }
     if(pthread_create(&thread_collection[3], NULL, input_manager, NULL)) {
         printf("Failed to create input handler\n");
     }
@@ -78,20 +80,32 @@ int main(int argc, char *argv[]) {
             pthread_create(&thread_collection[3], NULL, input_manager, NULL);
         }
         //change configuration / fix old threads
-        
+        if(command == 'm') {
+            S_View_Monitior();
+        } else if(command == 'k') {
+            run = 0;
+        }
+
         start_ti = clock();
         //wait .25 sec
         while(wait_ti < MONITOR_RATE) {
             end_ti = clock();
             wait_ti = (double) (end_ti - start_ti) / CLOCKS_PER_SEC;
         }
+
+        //reset loop vars
         wait_ti = 0;
+        command = '\0';
     }
+
+    printf("\nClosed Down. Bye!\n");
 }
 void *input_manager() {
     char command, clr; 
     int val = 0;
     
+    INP_W.internal_stat = 1;
+
     while(!val) {
         printf("\nServer is running. Enter command to control operation: ");
         command = getchar(); //blocks until we get a char
@@ -105,6 +119,7 @@ void *input_manager() {
 
     INP_W.exit_code = 1;
     INP_W.msg[0] = command;
+    INP_W.internal_stat = 0;
 }
 
 void *dock_manager() {
@@ -119,18 +134,37 @@ void *dps_manager() {
     while(1);
 }
 
+//Server S_ helper functions
+void S_View_Monitior() {
+    int i;
+    printf("\nWorker Arrangement: 0 <= Dock, 1 <= Transform, 2 <= DPS Manager, 3 <= Input Handler\n\n");
+    for(i = 0; i < NUM_WORKERS; i++) {
+        printf("Worker %d | Comm Block:\n", i);
+        printf("-Target Stream: %d\n", comm_block[i].targetted_stream);
+        printf("-Internal Status: %d\n", comm_block[i].internal_stat);
+        printf("-Exit Code: %d\n", comm_block[i].exit_code);
+        printf("-Current Message Buff: %s", comm_block[i].msg);
+        printf("-Message Read: %d\n\n", comm_block[i].read);
+    }
+}
+
 void S_Thread_Cmd_Relay(char cmd) {
 
 }
 
 void S_Init_CommBlock(){
-
+    //may need to init a few things not to 0 in the future but this works for now.
+    int i;
+    for(i = 0; i < NUM_WORKERS; i++) {
+        S_flush_CommBlock(&comm_block[i]);
+    }
 }
 
 void S_flush_CommBlock(thread_state_t *trgt) {
     int i;
 
     trgt->targetted_stream = 0;
+    trgt->internal_stat = 0;
     trgt->shutdown = 0;
     trgt->exit_code = 0;
     trgt->read = 0;

@@ -5,7 +5,7 @@ int main()
 {
   char c;
   
-  FILE *f_ptr = fopen("/dev/cu.usbserial-A907CARG", "r");
+  FILE *f_ptr = fopen("/dev/ttyUSB0", "r");
   while(1)
   {
     c = fgetc(f_ptr);

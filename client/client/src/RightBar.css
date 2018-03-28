@@ -1,0 +1,18 @@
+.RightBar {
+  position: fixed;
+  bottom: 0;
+  top: 0;
+  right: 0;
+  background-color: #1f1f1f;
+  width: 400px;
+  padding: 16px;
+}
+
+.RightBar-divide {
+  position: fixed;
+  bottom: 0;
+  top: 0;
+  right: 400px;
+  background-color: #000000;
+  width: 1px;
+}

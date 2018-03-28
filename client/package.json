@@ -1,0 +1,17 @@
+{
+  "name": "electron-quick-start",
+  "version": "1.0.0",
+  "description": "A minimal Electron application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "node build-client.js",
+    "client": "BROWSER=none node start-client.js",
+    "start-dev": "ELECTRON_DEV_URL=http://localhost:3000 concurrently 'npm run client' 'wait-on http://localhost:3000/ && npm start'"
+  },
+  "devDependencies": {
+    "concurrently": "^3.5.0",
+    "electron": "~1.8.2",
+    "wait-on": "^2.1.0"
+  }
+}

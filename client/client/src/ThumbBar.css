@@ -1,0 +1,27 @@
+.ThumbBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #373737;
+  height: 116px;
+  padding: 16px;
+}
+
+.ThumbBar-divide {
+  position: fixed;
+  bottom: 116px;
+  left: 0;
+  right: 0;
+  background-color: #000000;
+  height: 1px;
+}
+
+.ThumbBar-highlight {
+  position: fixed;
+  bottom: 117px;
+  left: 0;
+  right: 0;
+  background-color: #1f1f1f;
+  height: 1px;
+}

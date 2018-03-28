@@ -6,7 +6,7 @@
 const int FLEX_SENSOR_1 = A0;
 const float VCC = 5.03; //5V line voltage
 const float R_DIV_FLEX = 39000; //Divider resistance
-const float STRAIGHT_R = 13000;
+const float STRAIGHT_R = 14125;
 const float NINETY_DEG_R = 35000;
 
 const int PRESSURE_SENSOR_1 = A1;
@@ -33,7 +33,7 @@ void loop()
   float angle = map(flexR, STRAIGHT_R, NINETY_DEG_R, 0, 90.0);
 
   Serial.println("===========================================");
-  Serial.println("Bend: " + String(angle) + " degrees");
+  Serial.println("Bend: " + String(angle) + " degrees " + "Resistance: " + flexR + " Ohms");
   Serial.println();
 
   /*PRESSURE SENSOR*/

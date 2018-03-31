@@ -4,8 +4,8 @@
 
 int validate_cmd(char cmd) {
     int i;
-    int num_cmds = 2;
-    char val_char[] = {'k', 'm'};
+    int num_cmds = 3;
+    char val_char[] = {'k', 'm', 'l'};
 
     for(i = 0; i < num_cmds; i++) {
         if(cmd == val_char[i]) {
@@ -21,8 +21,9 @@ void print_cmdls() {
     printf("\nTable of Server Control Commands:\n");
     printf("- 'k': (kill) close down server operations\n");
     printf("- 'm': (monitor) display current state of server\n");
+    printf("- 'l': (livestream) set up a line to the livestream output for the current incoming stream or\
+     the next if none is currentlt running.");
     
-    return;
 }
 void Dock_fn() {}
 

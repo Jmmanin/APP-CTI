@@ -9,14 +9,15 @@
 #include "ServerFunctions.h"
 //#include "InterfaceProtocols.h"
 
-#define NUM_WORKERS 4
+#define NUM_WORKERS 5
 #define MSG_SIZE 16
-#define DOCK_W comm_blok[0]
+#define DOCK_W comm_block[0]
 #define TRNS_W comm_block[1]
 #define DPS_W comm_block[2]
 #define INP_W comm_block[3]
+#define LIVS_W comm_block[4]
 
-#define MONITOR_RATE 0.25
+#define MONITOR_DELAY 0.25
 
 //definitions
     //used to communicate between work threads
@@ -27,7 +28,22 @@ typedef struct thread_state {
     int shutdown;          //m->w
     char msg[MSG_SIZE];    //m<->w
     int read;              //m<->w associated to msg
+    int go_live;
 } thread_state_t;
+
+/*struct dock_state {
+    int trgt_stream;
+    int exit_code;
+    int shutdown;
+    int go_live;
+}
+
+struct live_state {
+    int trgt_stream;
+    int exit_code;
+    int shutdown;
+    int go_live;
+}*/
 
 thread_state_t comm_block[NUM_WORKERS];
 
@@ -74,21 +90,32 @@ int main(int argc, char *argv[]) {
         //check status of the workers
         if(INP_W.exit_code == 1) {
             command = INP_W.msg[0]; //store the first char of the inp. buffer as the command char
-            S_flush_CommBlock(&INP_W);
-            S_Thread_Cmd_Relay(command);
-            printf("MAIN THREAD: recieved '%c' as cmd", command);
-            pthread_create(&thread_collection[3], NULL, input_manager, NULL);
-        }
-        //change configuration / fix old threads
-        if(command == 'm') {
-            S_View_Monitior();
-        } else if(command == 'k') {
-            run = 0;
         }
 
+        //change configuration
+        switch(command) {
+            case 'm':
+                S_View_Monitior();
+                break;
+            case 'k':
+                run = 0;
+                S_Send_Shutdown();
+                break;
+            case 'l':
+                S_Create_livestream();
+                break;
+        }
+        
+        if(INP_W.exit_code == 1) {
+            S_flush_CommBlock(&INP_W);
+            if(command != 'k') {
+                pthread_create(&thread_collection[3], NULL, input_manager, NULL);
+            }
+        }
+
+        //set this cycle to ~4Hz
         start_ti = clock();
-        //wait .25 sec
-        while(wait_ti < MONITOR_RATE) {
+        while(wait_ti < MONITOR_DELAY) {
             end_ti = clock();
             wait_ti = (double) (end_ti - start_ti) / CLOCKS_PER_SEC;
         }
@@ -98,6 +125,11 @@ int main(int argc, char *argv[]) {
         command = '\0';
     }
 
+    //Close down protocols
+    for(i = 1; i < NUM_WORKERS; i++) {
+        printf("Waiting on worker %d to shut down.\n", i);
+        pthread_join(&thread_collection[i], NULL);
+    }
     printf("\nClosed Down. Bye!\n");
 }
 void *input_manager() {
@@ -123,18 +155,32 @@ void *input_manager() {
 }
 
 void *dock_manager() {
-    while(1);
+    while(DOCK_W.shutdown == 0);
 }
 
 void *transform_manager() {
-    while(1);
+    while(TRNS_W.shutdown == 0);
 }
 
 void *dps_manager() {
-    while(1);
+    while(DPS_W.shutdown == 0);
 }
 
 //Server S_ helper functions
+void S_Create_livestream() {
+    if(DOCK_W.go_live == 1) {
+        printf("Mode is already in livestream. ")
+        if(DOCK_W.targetted_stream != 0) {
+            printf("Currently targetting id: %d\n\n", DOCK_W.targetted_stream);
+        } else {
+            printf("No stream is currently live.\n\n");
+        }
+        return;
+    }
+
+    pthread_create(&thread_collection[4], NULL, livestream_manager);
+}
+
 void S_View_Monitior() {
     int i;
     printf("\nWorker Arrangement: 0 <= Dock, 1 <= Transform, 2 <= DPS Manager, 3 <= Input Handler\n\n");

@@ -20,6 +20,11 @@
 #define MONITOR_DELAY 0.25
 
 //definitions
+struct livestream_state {
+    int go_live;
+    int targetted_stream;
+    int sample_rate;
+} 
     //used to communicate between work threads
 typedef struct thread_state {
     int targetted_stream;  //w->m
@@ -28,24 +33,10 @@ typedef struct thread_state {
     int shutdown;          //m->w
     char msg[MSG_SIZE];    //m<->w
     int read;              //m<->w associated to msg
-    int go_live;
 } thread_state_t;
 
-/*struct dock_state {
-    int trgt_stream;
-    int exit_code;
-    int shutdown;
-    int go_live;
-}
-
-struct live_state {
-    int trgt_stream;
-    int exit_code;
-    int shutdown;
-    int go_live;
-}*/
-
 thread_state_t comm_block[NUM_WORKERS];
+struct livestream_state live_state;
 
 //Top Level Function Prototypes
 void *dock_manager();
@@ -56,8 +47,9 @@ void *input_manager();
 //Second Level Function Prototypes
 void S_Init_CommBlock();
 void S_flush_CommBlock(thread_state_t *target);
-void S_Thread_Cmd_Relay(char cmd);
 void S_View_Monitior();
+void S_Create_livestream();
+void S_End_livestream();
 
 
 int main(int argc, char *argv[]) {
@@ -104,6 +96,9 @@ int main(int argc, char *argv[]) {
             case 'l':
                 S_Create_livestream();
                 break;
+            case 'e':
+                S_End_livestream();
+                break;
         }
         
         if(INP_W.exit_code == 1) {
@@ -132,6 +127,10 @@ int main(int argc, char *argv[]) {
     }
     printf("\nClosed Down. Bye!\n");
 }
+
+//************************
+//       Managers
+//************************
 void *input_manager() {
     char command, clr; 
     int val = 0;
@@ -166,9 +165,20 @@ void *dps_manager() {
     while(DPS_W.shutdown == 0);
 }
 
-//Server S_ helper functions
+void *livestream_manager() {
+    if(live_state.go_live == 0) {
+        printf("LIVS LOG: Livestream created without being in live mode. Sleeping worker.\n");
+        return;
+    }
+
+
+}
+
+//*************************
+//  King Thread Functions
+//*************************
 void S_Create_livestream() {
-    if(DOCK_W.go_live == 1) {
+    if(live_state.go_live == 1) {
         printf("Mode is already in livestream. ")
         if(DOCK_W.targetted_stream != 0) {
             printf("Currently targetting id: %d\n\n", DOCK_W.targetted_stream);
@@ -178,7 +188,17 @@ void S_Create_livestream() {
         return;
     }
 
-    pthread_create(&thread_collection[4], NULL, livestream_manager);
+    Q_Init();
+    live_state.targetted_stream = DOCK_W.targetted_stream;
+    pthread_create(&thread_collection[4], NULL, livestream_manager, NULL);
+}
+
+void S_End_livestream() {
+    if(live_state.go_live == 0) {
+        printf("Dock is not currently attempting to stream.\n");
+        return;
+    }
+    live_state.go_live = 0;
 }
 
 void S_View_Monitior() {
@@ -194,16 +214,16 @@ void S_View_Monitior() {
     }
 }
 
-void S_Thread_Cmd_Relay(char cmd) {
-
-}
-
 void S_Init_CommBlock(){
     //may need to init a few things not to 0 in the future but this works for now.
     int i;
     for(i = 0; i < NUM_WORKERS; i++) {
         S_flush_CommBlock(&comm_block[i]);
     }
+
+    live_state.go_live = 0;
+    live_state.targetted_stream = 0;
+    live_state.sample_rate = 0;
 }
 
 void S_flush_CommBlock(thread_state_t *trgt) {

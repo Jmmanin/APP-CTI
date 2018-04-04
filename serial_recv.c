@@ -25,7 +25,7 @@ int main()
   uint8_t start_buf = 0;
   uint32_t temp = 0;
   
-  FILE *f_ptr = fopen("/dev/ttyUSB0", "r");
+  FILE *f_ptr = fopen("/dev/cu.usbserial-DN03FU8O", "r");
 
   signal(SIGINT, handler);
   
@@ -35,7 +35,12 @@ int main()
     {
       fread(&packet_to_recv, sizeof(struct serial_packet), 1, f_ptr); //read packet
     
-      printf("temp: %d\n", packet_to_recv.serial_temp);
+      printf("====================================\n");
+      printf("Orientation:\n");
+      printf("X: %f\n", packet_to_recv.serial_orientation[0]);
+      printf("Y: %f\n", packet_to_recv.serial_orientation[1]);
+      printf("Z: %f\n", packet_to_recv.serial_orientation[2]);
+      printf("====================================\n\n");
     
       start_recvd = 0;
     }

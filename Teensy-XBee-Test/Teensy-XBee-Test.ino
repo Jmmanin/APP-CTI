@@ -1,3 +1,7 @@
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
+
 struct serial_packet
 {
   int32_t serial_start;
@@ -13,14 +17,19 @@ struct test_packet
 } test_to_send;
 
 const int32_t start_val = -1386103603;
+Adafruit_BNO055 bno = Adafruit_BNO055(55);
 
 void setup()
 {
-  Serial1.begin(9600);
+  Serial.begin(9600);
+  Wire.begin();
+  bno.begin(Adafruit_BNO055::OPERATION_MODE_IMUPLUS);
 }
 
 void loop()
 {
+  imu::Vector<3> orientation = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+  
   packet_to_send.serial_start = start_val;
   packet_to_send.serial_angle[0] = 0; //thumb angle
   packet_to_send.serial_angle[1] = 0; //index angle
@@ -32,10 +41,10 @@ void loop()
   packet_to_send.serial_pressure[2] = 0; //middle pressure
   packet_to_send.serial_pressure[3] = 0; //ring pressure
   packet_to_send.serial_pressure[4] = 0; //little pressure
-  packet_to_send.serial_orientation[0] = 0; //x
-  packet_to_send.serial_orientation[1] = 0; //y
-  packet_to_send.serial_orientation[2] = 0; //z
-  packet_to_send.serial_temp = 666; //tempurature
+  packet_to_send.serial_orientation[0] = orientation.x(); //x
+  packet_to_send.serial_orientation[1] = orientation.y(); //y
+  packet_to_send.serial_orientation[2] = orientation.z(); //z
+  packet_to_send.serial_temp = 0; //tempurature
   
-  Serial1.write((byte*)&packet_to_send, sizeof(serial_packet));
+  Serial.write((byte*)&packet_to_send, sizeof(serial_packet));
 }

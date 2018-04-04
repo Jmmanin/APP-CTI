@@ -1,7 +1,6 @@
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BNO055.h>
-#include <Adafruit_Sensor.h>
 
 const int FLEX_SENSOR_1 = A0;
 const float VCC = 5.03; //5V line voltage

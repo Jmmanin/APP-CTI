@@ -36,10 +36,24 @@ int main()
       fread(&packet_to_recv, sizeof(struct serial_packet), 1, f_ptr); //read packet
     
       printf("====================================\n");
+      printf("Angle:\n");
+      printf("Thumb: %f\n", packet_to_recv.serial_angle[0]);
+      printf("Index: %f\n", packet_to_recv.serial_angle[1]);
+      printf("Middle: %f\n", packet_to_recv.serial_angle[2]);
+      printf("Ring: %f\n", packet_to_recv.serial_angle[3]);
+      printf("Little: %f\n", packet_to_recv.serial_angle[4]);
+      printf("Pressure:\n");
+      printf("Thumb: %f\n", packet_to_recv.serial_pressure[0]);
+      printf("Index: %f\n", packet_to_recv.serial_pressure[1]);
+      printf("Middle: %f\n", packet_to_recv.serial_pressure[2]);
+      printf("Ring: %f\n", packet_to_recv.serial_pressure[3]);
+      printf("Little: %f\n", packet_to_recv.serial_pressure[4]);
       printf("Orientation:\n");
       printf("X: %f\n", packet_to_recv.serial_orientation[0]);
       printf("Y: %f\n", packet_to_recv.serial_orientation[1]);
       printf("Z: %f\n", packet_to_recv.serial_orientation[2]);
+      printf("Temperature:\n");
+      printf("%d *C\n", packet_to_recv.serial_temp);
       printf("====================================\n\n");
     
       start_recvd = 0;

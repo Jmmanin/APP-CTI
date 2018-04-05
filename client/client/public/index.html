@@ -26,8 +26,26 @@
     <noscript>
       You need to enable JavaScript to run this app.
     </noscript>
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.6/socket.io.min.js"></script>
     <script>
-      var gameInstance = UnityLoader.instantiate("gameContainer", "Build/Handy.json");
+      var gameInstance = UnityLoader.instantiate("gameContainer", "Build/Hand.json");
+
+      // window.addEventListener('keydown', function(event) {
+      //   if(event.keyCode == 37) {
+      //     gameInstance.SendMessage('pSphere1', 'BendFinger', 0.5);
+      //   } else if(event.keyCode == 39) {
+      //     gameInstance.SendMessage('pSphere1', 'BendFinger', 0);
+      //   }
+      // });
+
+      var socket = io('http://127.0.0.1:5000');
+      socket.on('digit', function(msg) {
+        console.log(msg.f1 + ' : ' + msg.f2 + ' : ' + msg.f3 + ' : ' + msg.f4);
+        gameInstance.SendMessage('pSphere1', 'BendFinger', msg.f1);
+        gameInstance.SendMessage('pSphere4', 'BendFinger', msg.f2);
+        gameInstance.SendMessage('pSphere7', 'BendFinger', msg.f3);
+        gameInstance.SendMessage('pSphere10', 'BendFinger', msg.f4);
+      });
     </script>
     <div id="root"></div>
     <!--

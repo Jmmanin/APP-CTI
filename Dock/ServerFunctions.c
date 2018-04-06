@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "FileAPI.h"
+#include "UniversalDefines.h"
+
 int validate_cmd(char cmd) {
     int i;
     int num_cmds = 4;
@@ -22,12 +25,18 @@ void print_cmdls() {
     printf("- 'k': (kill) close down server operations\n");
     printf("- 'm': (monitor) display current state of server\n");
     printf("- 'l': (livestream) set up a line to the livestream output for the current incoming stream or\
-     the next if none is currentlt running.\n");
+     the next if none is currently running.\n");
     printf("- 'e': (end) return server standard input mode.\n");
     
 }
-void Dock_fn() {}
+void T_data_transform(char *work_in, char *work_out, int num_pkts) {
+    int i;
+    char work_out_buff[MAX_PRDATBUFF_SIZE];
+    //Example transform takes a 1 char input packet and puts the char twice into a char output packet
+    for(i = 0; i < num_pkts; i++) {
+        work_in[INP_PKT_SIZE*i] = work_out_buff[TRNS_PKT_SIZE*i];
+        work_in[INP_PKT_SIZE*i] = work_out_buff[TRNS_PKT_SIZE*i + 1];
+    }
 
-void Transform_fn() {}
-
-void ProcData_fn() {}
+    work_out = work_out_buff;
+}

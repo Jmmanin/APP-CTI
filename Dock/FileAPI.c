@@ -20,23 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "FileAPI.h"
-
-//defines and global state declares
-#define FS_TABLE "storage/fs_fileSystem.txt"
-#define STATE_TABLE "storage/state.bin"
-#define TRF_QUEUE "storage/fs_rawQueue.bin"
-#define CHECKOUT_TABLE "storage/fs_coTable.bin"
-
-#define SHORT_FNAME_LENGTH 20  /*The lengths of buffers commonly used for storing filename strings*/
-#define STD_FNAME_LENGTH 30
-#define LONG_FNAME_LENGTH 50
-
-#define MAX_STREAM_TIME  300  /*length of time in seconds a single stream will be constrained to*/
-#define MAX_SAMPLE_RATE 60 /*60hz max sample rate*/
-#define SAMPLE_SIZE 1 /*standardized sample size*/
-#define PRDAT_SAMPLE_SIZE 1 
-#define MAX_TRFBUFF_SIZE (MAX_STREAM_TIME * MAX_SAMPLE_RATE * SAMPLE_SIZE)
-#define MAX_BUFF_SIZE (MAX_STREAM_TIME * MAX_SAMPLE_RATE * PRDAT_SAMPLE_SIZE) /*largest possible buffer size*/
+#include "UniversalDefines.h"
 
 //structs and enums
 
@@ -91,7 +75,7 @@ exit statuses:
     - 1: stream_ptr points to a stream the does not exist
     - 2: stream_ptr points to a COMPLETE stream
 */
-int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_timelength) {
+int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_numPkts) {
     trfb_header_t stream_info;
     trf_header_t new_header;
     trf_header_t prevtrail_header;
@@ -135,7 +119,7 @@ int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_timelength) {
     new_header.stream_id = stream_info.stream_id;
     new_header.sample_rate = stream_info.sample_rate;
     new_header.time_slice = stream_info.run_time;
-    new_header.payload = stream_info.sample_rate * chunk_timelength * SAMPLE_SIZE;
+    new_header.payload = chunk_numPkts * INP_PKT_SIZE;
     for(i = 0; i < LONG_FNAME_LENGTH; i++) {
         new_header.prev_file[i] = stream_info.last_file[i];
     }
@@ -151,7 +135,7 @@ int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_timelength) {
         stream_info.last_file[i] = trf_file_s[i];
     }    
     stream_info.num_links += 1;
-    stream_info.run_time += chunk_timelength; 
+    stream_info.run_time += stream_info.sample_rate * chunk_numPkts; 
     
         //update trailing file info
     if(!first_commit_flag) {
@@ -197,7 +181,7 @@ int store_processed_chunk(int stream_id, char *buffer_ptr, int chunk_payloadsize
     int new_file_flag = 0;
     int old_payload_size = 0;
     char prdat_s[LONG_FNAME_LENGTH];
-    char old_payload[MAX_BUFF_SIZE];
+    char old_payload[MAX_PRDATBUFF_SIZE];
     FILE *prdat;
     trfb_header_t stream_info;
     prdat_header_t proc_header;
@@ -228,7 +212,7 @@ int store_processed_chunk(int stream_id, char *buffer_ptr, int chunk_payloadsize
     }
     old_payload_size = proc_header.payload;
     proc_header.payload += chunk_payloadsize; /*one of these will have to be scaled!!!*/
-    proc_header.run_time += chunk_payloadsize / (PRDAT_SAMPLE_SIZE * proc_header.sample_rate);
+    proc_header.run_time += chunk_payloadsize / (TRNS_PKT_SIZE * proc_header.sample_rate);
 
     prdat = fopen(prdat_s, "wb");
     fwrite(&proc_header, sizeof(prdat_header_t), 1, prdat);
@@ -281,7 +265,7 @@ int cap_rawstream(int stream_id) {
 int cap_processed_file(int stream_id, int force_cap) {
     FILE *prdat;
     char prdat_s[LONG_FNAME_LENGTH];
-    char prdat_buff[MAX_BUFF_SIZE];
+    char prdat_buff[MAX_PRDATBUFF_SIZE];
     prdat_header_t proc_header;
     trfb_header_t stream_header = FS_get_trfb(stream_id);
 
@@ -321,7 +305,7 @@ int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffe
     int i;
     trf_header_t target_meta;
     trfb_header_t target_base_meta;
-    char target_buff[MAX_BUFF_SIZE];
+    char target_buff[MAX_TRFBUFF_SIZE];
     char trfb_s[LONG_FNAME_LENGTH];
 
     //setup target stream
@@ -377,11 +361,11 @@ int read_processed_stream(int stream_id, prdat_header_t *meta_buffer, char *data
     FILE* target_trf = fopen(prdat_s, "rb");
     fread(meta_buffer, sizeof(prdat_header_t), 1, target_trf);
 
-    if(buffer_cap < MAX_BUFF_SIZE) {
+    if(buffer_cap < MAX_PRDATBUFF_SIZE) {
         //Protects from segfaults but my not read out whole target
         fread(data_buffer, sizeof(char), buffer_cap, target_trf);
     } else {
-        fread(data_buffer, sizeof(char), MAX_BUFF_SIZE, target_trf);
+        fread(data_buffer, sizeof(char), MAX_PRDATBUFF_SIZE, target_trf);
     }
     fclose(target_trf);
     

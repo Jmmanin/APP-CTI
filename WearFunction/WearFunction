@@ -1,0 +1,44 @@
+''' Wear function for calculating time to work
+    Realizes the wear function described in the conceptual design doc.
+
+'''
+import sys
+
+
+'''memory elements'''
+t_start = 0
+T_recov = 45
+active = True
+sample_rate = input("Input sample siz");
+w_thres = 300
+TTL = 0
+count = 0
+
+
+while True:
+        # inputs
+        print("Time step ", count)
+        t_current=0
+        W_ra=0
+
+        if W_ra < 1:
+            decay = 1 - (t_current - t_start) / T_recov
+            if active:
+                t_start = t_current
+                active = False
+            w_current *= decay
+        else:
+            w_current += w_current / sample_rate
+            if not active:
+                active = True
+
+        if (w_current >= w_thres) and active:
+            print("Stop typing! You have been working for too long!")
+            T_recov += 1/sample_rate
+            TTL = 0
+        else:
+            TTL = (w_thres - w_current + W_ra) / W_ra
+            if not active:
+                print("you are recovering", T_recov - (t_current - t_start), "Seconds left")
+            else:
+                print("you have ", TTL, " seconds left of safe typing")

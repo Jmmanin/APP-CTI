@@ -5,16 +5,12 @@ Includes calls for
 - reading and viewing the inner file system
 - managing the inner file system
 */
+//Inclusion guard
+#ifndef FILE_API_INCLUDE
+#define FILE_API_INCLUDE
 
-//TODO these need to be made into macros! Not just defines so they are available as part of the module
-#define MAX_STREAM_TIME  300  /*length of time in seconds a single stream will be constrained to*/
-#define MAX_SAMPLE_RATE 60 /*60hz max sample rate*/
-#define SAMPLE_SIZE 1 /*standardized sample size*/
-#define MAX_BUFF_SIZE (MAX_STREAM_TIME * MAX_SAMPLE_RATE * SAMPLE_SIZE) /*largest possible buffer size*/
-
-#define SHORT_FNAME_LENGTH 20  /*The lengths of buffers commonly used for storing filename strings*/
-#define STD_FNAME_LENGTH 30
-#define LONG_FNAME_LENGTH 50
+//Includes
+#include "UniversalDefines.h"
 
 //****************************
 //Available Typing and Structs
@@ -22,7 +18,7 @@ Includes calls for
 typedef struct trf_header {
     int stream_id;
     int sample_rate;
-    int time_slice;
+    double time_slice;
     int payload;
     char prev_file[LONG_FNAME_LENGTH];
     char next_file[LONG_FNAME_LENGTH];
@@ -32,7 +28,7 @@ typedef struct trf_header {
 typedef struct prdat_header {
     int stream_id;
     int sample_rate;
-    int run_time;
+    double run_time;
     int payload;
     int build_state;
 } prdat_header_t;
@@ -44,7 +40,7 @@ typedef struct trfb_header {
     char last_file[LONG_FNAME_LENGTH];
     char readout_ptr[LONG_FNAME_LENGTH];
     int num_links;
-    int run_time;
+    double run_time;
     int build_state;
 } trfb_header_t;
 
@@ -117,3 +113,5 @@ int db_backup();
 
         //Overwrites files in the system with those in the image folder
 int db_restore_db();
+
+#endif

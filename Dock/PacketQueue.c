@@ -3,8 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-
-#define START_SIZE 64  //start value of q_length
+#include "UniversalDefines.h"
 
 char *dataArray;    //malloc a dummy pointer
 int packetSize;     //packet length in chars
@@ -16,16 +15,22 @@ int itemCount = 0;
 //prototypes
 int Q_isFull();
 void Q_resizeAndAdd(char *data);
+int Q_getPacketSize();
 
 
 void Q_Init(int new_size) {
-    q_length = START_SIZE;
+    q_length = Q_START_SIZE;
     front = 0;
     rear = -1;
     itemCount = 0;
     packetSize = new_size;
     dataArray = malloc((packetSize*q_length));
 
+}
+
+void Q_reset() {
+    free(dataArray);
+    Q_Init(Q_getPacketSize());
 }
 
 int Q_getPacketSize() {
@@ -53,7 +58,7 @@ void Q_peek(char *output_buff) {
 void Q_addData(char *data) {
     int i;
 
-    if(!isFull()) {
+    if(!Q_isFull()) {
         if(rear == q_length-1) {
             rear = -1;            
         } 

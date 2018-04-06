@@ -87,9 +87,7 @@ int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_numPkts) {
     char trfb_s[STD_FNAME_LENGTH];
     char prevtrail_payload[MAX_TRFBUFF_SIZE];
     
-    FILE *trfb;
-    FILE *trailing_trf;
-    FILE *new_entry;
+    FILE *trfb, *trailing_trf, *new_entry;
 
     //ENSURE VALID FILESTREAM
     FS_get_file_name(trfb_s, stream_id, TRFB, 0);
@@ -104,11 +102,7 @@ int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_numPkts) {
 
     if(stream_info.build_state == COMPLETE) {
         return 2;  //stream is not accepting chunks
-    } else if(stream_info.build_state == UPTODATE) {
-        stream_info.build_state = OPEN;
-        FS_add_to_q(stream_id);
     }
-
     if(stream_info.num_links == 0) {
         first_commit_flag = 1;
     }
@@ -130,6 +124,13 @@ int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_numPkts) {
             stream_info.first_file[i] = trf_file_s[i];
             stream_info.readout_ptr[i] = trf_file_s[i];
         }
+    } 
+    if(stream_info.build_state == UPTODATE) {
+        for(i = 0; i < LONG_FNAME_LENGTH; i++) {
+            stream_info.readout_ptr[i] = trf_file_s[i];
+        }
+        stream_info.build_state = OPEN;
+        FS_add_to_q(stream_id);
     }
     for(i = 0; i < LONG_FNAME_LENGTH; i++) {
         stream_info.last_file[i] = trf_file_s[i];
@@ -302,6 +303,7 @@ return:
     n > 0 - stream_id work buffer belongs to. 
 */
 int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffer) {
+    printf("** Stream_id: %d: \n",stream_id);
     int i;
     trf_header_t target_meta;
     trfb_header_t target_base_meta;
@@ -318,19 +320,20 @@ int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffe
 
     target_base_meta = FS_get_trfb(stream_id);
     if(strcmp(target_base_meta.readout_ptr, "") == 0) {
+        printf("** exiting bc read ptr == ''\n");
         return 0;  //there is nothing in the stream to work on. 
     }
 
 
     //readout target file
     FILE *target_trf = fopen(target_base_meta.readout_ptr, "rb");
-    fread(&target_meta, sizeof(trf_header_t), 1, target_trf);
-    fread(&target_buff, sizeof(char), target_meta.payload, target_trf);
+    fread(meta_buffer, sizeof(trf_header_t), 1, target_trf);
+    fread(chunk_buff, sizeof(char), target_meta.payload, target_trf);
     fclose(target_trf);
 
     //update pointers
     for(i = 0; i < LONG_FNAME_LENGTH; i++) {
-        target_base_meta.readout_ptr[i] = target_meta.next_file[i];
+        target_base_meta.readout_ptr[i] = meta_buffer->next_file[i];
     }
     if(strcmp(target_base_meta.readout_ptr, "") == 0) {
         if(target_base_meta.build_state != COMPLETE) {
@@ -338,14 +341,15 @@ int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffe
         }
     }
     
+    printf("**next read: %s\n", target_base_meta.readout_ptr);
     FS_get_file_name(trfb_s, stream_id, TRFB, 0);
     FILE *trfb = fopen(trfb_s, "wb");
     fwrite(&target_base_meta, sizeof(trfb_header_t), 1, trfb);
     fclose(trfb);
 
     //close out function
-    chunk_buff = target_buff;
-    meta_buffer = &target_meta;
+    //chunk_buff = target_buff;
+    //meta_buffer = &target_meta;
     return stream_id;
 
 }
@@ -439,100 +443,74 @@ void FS_get_file_name(char *filename_s, int stream_id, int style, int iteration)
     }
     return;
 }
-/*returns 0 if add, 1 if cannot add as max queue size reached*/
+/*returns 0 if add, 1 if queue issue*/
 int FS_add_to_q(int stream_id) {
-    int q_length; 
-    int qbuf_length = 16;
+    int q_length;
+    int num_jobs;
     int *qbuf;
     
-    FILE *work_q = fopen(TRF_QUEUE, "rb");
-    fread(&q_length, sizeof(int), 1, work_q);
-
-    q_length += 1;
-
-    if(q_length > qbuf_length) {
-        qbuf_length = qbuf_length * 4;
-        if(q_length > qbuf_length) {
-            qbuf_length = qbuf_length * 4;
-            if(q_length > qbuf_length) {
-                qbuf_length = qbuf_length * 4;
-                if(q_length > qbuf_length) {
-                    return 1;
-                } else {
-                    int qbuf_large[256];
-                    qbuf = qbuf_large;
-                }
-            }
-        } else {
-            int qbuf_med[64];
-            qbuf = qbuf_med;
-        }
-    } else {
-        int qbuf_sm[16];
-        qbuf = qbuf_sm;
+    if(!FS_check_file(TRF_QUEUE)) {
+        return 1;
+    }
+    if(stream_id == 0) {
+        return 1;
     }
 
-    fread(qbuf, sizeof(int), (q_length - 1), work_q);
-    fclose(work_q);
+    FILE *work_q = fopen(TRF_QUEUE, "rb");
+    
+    fseek(work_q, 0, SEEK_END);
+    q_length = ftell(work_q);
+    fseek(work_q, 0, SEEK_SET);
+    num_jobs = q_length / sizeof(int);
 
-    qbuf[q_length-1] = stream_id;
+    qbuf = (int *) malloc(q_length + sizeof(int));
+    fread(qbuf, sizeof(int), num_jobs, work_q);
+    fclose(work_q);
+    
+    qbuf[num_jobs] = stream_id;
+    num_jobs += 1;
 
     work_q = fopen(TRF_QUEUE, "wb");
-    fwrite(&q_length, sizeof(int), 1, work_q);
-    fwrite(&qbuf[1], sizeof(int), q_length, work_q);
-    fclose(work_q);
+    fwrite(qbuf, sizeof(int), num_jobs, work_q);
 
+    fclose(work_q);
+    free(qbuf);
     return 0;
 }
 
-/*returns stream_id of work to be processed and strikes the id from the queue*/
 int FS_pull_from_q() {
-    int q_length; 
-    int qbuf_length = 16;
+    int q_length;
+    int num_jobs;
+    int next_job;
     int *qbuf;
     
+    if(!FS_check_file(TRF_QUEUE)) {
+        return 0;
+    }
+
     FILE *work_q = fopen(TRF_QUEUE, "rb");
-    fread(&q_length, sizeof(int), 1, work_q);
-
-    if(q_length == 0) {
+    
+    fseek(work_q, 0, SEEK_END);
+    q_length = ftell(work_q);
+    if(q_length == 0 || q_length < sizeof(int)) {
         fclose(work_q);
-        return 0; //no work to check out
+        return 0;
     }
 
-    if(q_length > qbuf_length) {
-        qbuf_length = qbuf_length * 4;
-        if(q_length > qbuf_length) {
-            qbuf_length = qbuf_length * 4;
-            if(q_length > qbuf_length) {
-                qbuf_length = qbuf_length * 4;
-                if(q_length > qbuf_length) {
-                    return 0;
-                } else {
-                    int qbuf_large[256];
-                    qbuf = qbuf_large;
-                }
-            }
-        } else {
-            int qbuf_med[64];
-            qbuf = qbuf_med;
-        }
-    } else {
-        int qbuf_sm[16];
-        qbuf = qbuf_sm;
-    }
+    fseek(work_q, 0, SEEK_SET);
+    num_jobs = q_length / sizeof(int);
 
-    fread(qbuf, sizeof(int), q_length, work_q);
+    qbuf = (int *) malloc(q_length);
+    fread(qbuf, sizeof(int), num_jobs, work_q);
     fclose(work_q);
-
-    q_length -= 1;
+    
+    next_job = qbuf[0];
+    
     work_q = fopen(TRF_QUEUE, "wb");
-    fwrite(&q_length, sizeof(int), 1, work_q);
-    fwrite(&qbuf[1], sizeof(int), q_length, work_q);
-    fclose(work_q);
+    fwrite(&qbuf[1], sizeof(int), (num_jobs-1), work_q);
 
-    return qbuf[0];
+    return next_job;
 }
-
 //MANAGEMENT TABLE CALLS
     //FILE SYSTEM LOOKUP TABLE (fs-table) BOOLEAN
 int FS_register_stream(int stream_id) {
@@ -599,11 +577,50 @@ void FS_Init() {
 
     //check for work queue
     if(!FS_check_file(TRF_QUEUE)) {
-        int input = 0;
         FILE *trf_queue = fopen(TRF_QUEUE, "wb");
-        fwrite(&input, sizeof(int), 1, trf_queue);
         fclose(trf_queue);
     }
+}
+
+void FS_View_StateFiles() {
+    FS_Init();
+
+    FILE *st, *fs, *rq;
+    int st_buff;
+    char fs_buff[1024];
+    int rq_buff;
+    int reading = 1;
+    
+    //state table
+    printf("----State Table-----\n");
+    st = fopen(STATE_TABLE, "rb");
+    while(reading != 0) {
+        reading = fread(&st_buff, sizeof(int), 1, st);
+        if(reading != 0) {
+            printf("%d\n", st_buff);
+        }
+    }
+
+    //overview table
+    printf("\n---fs system table---\n");
+    reading = 1;
+    fs = fopen(FS_TABLE, "r");
+    reading = fread(fs_buff, sizeof(char), 1024, fs);
+    printf("Bytes present: %d\n", reading);
+    printf("payload: %s\n", fs_buff); 
+
+    //raw queue 
+    printf("\n---raw work queue---\n");
+    reading = 1;
+    rq = fopen(TRF_QUEUE, "rb");
+    while(reading != 0) {
+        reading = fread(&rq_buff, sizeof(int), 1, rq);
+        if(reading != 0) {
+            printf("%d\n", rq_buff);
+        }
+    }
+
+    printf("\n\nAll files printed.\n");
 }
 
 /*replaced with checkout_raw_chunk

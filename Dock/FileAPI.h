@@ -108,6 +108,9 @@ int read_processed_stream(int stream_id, prdat_header_t *meta_buffer, char *data
         //Ensures file system is in a valid state to access work
 void FS_Init(); 
 
+        //Prints out human readable version of the contents of the state files
+void FS_View_StateFiles();
+
         //creates and stores an image of the db to a different folder
 int db_backup();
 

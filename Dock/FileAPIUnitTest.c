@@ -5,10 +5,12 @@
 #include <string.h>
 #include <time.h>
 #include "FileAPI.h"
+#include "UniversalDefines.h"
 
-#define NUM_TESTS 1  /*Tests in the battery*/
+#define NUM_TESTS 4  /*Tests in the battery*/
 
 void print_base_buff(int base);
+void print_trf_buff(trf_header_t trgt);
 
 //---------FUNCTIONALITY TESTS-----------
 	//-I test the proper creation of new filestreams
@@ -74,7 +76,7 @@ int store_raw_chunk_test()
         fread(&buffer_cmp1, sizeof(char), header1.payload, f_ptr);
         fclose(f_ptr);
 
-		printf("_0.trf: id %d\n rate: %d\n timeslice: %d\n payload: %d\n pfile: %s\n nfile: %s\n\n",
+		printf("_0.trf: id %d\n rate: %d\n timeslice: %lf\n payload: %d\n pfile: %s\n nfile: %s\n\n",
      		header1.stream_id, header1.sample_rate, header1.time_slice, header1.payload, header1.prev_file, header1.next_file);
 
 		sprintf(target_file, "storage/%d_1.trf", id);
@@ -83,7 +85,7 @@ int store_raw_chunk_test()
         fread(&buffer_cmp2, sizeof(char), header2.payload, f_ptr);
         fclose(f_ptr);
 
-		printf("_1.trf: id %d\n rate: %d\n timeslice: %d\n payload: %d\n pfile: %s\n nfile: %s\n\n",
+		printf("_1.trf: id %d\n rate: %d\n timeslice: %lf\n payload: %d\n pfile: %s\n nfile: %s\n\n",
      		header2.stream_id, header2.sample_rate, header2.time_slice, header2.payload, header2.prev_file, header2.next_file);	
         
 		printf("Buffer0:%x, %x, %x\n", buffer_cmp1[0], buffer_cmp1[1], buffer_cmp1[2]);
@@ -133,6 +135,30 @@ int store_procbuff_test() {
 	store_processed_chunk(id, third_store, strlen(third_store));
 
 	return 1;
+}
+
+int read_two_chunk_test() {
+	trf_header_t header_out;
+	trf_header_t header_out2;
+	char chunk_out[MAX_TRFBUFF_SIZE];
+	char chunk_out2[MAX_TRFBUFF_SIZE];
+	int stream_id;
+
+	stream_id = checkout_raw_chunk(0, chunk_out, &header_out);
+	//printf("Stream_id: %d: \n",stream_id);
+	print_trf_buff(header_out);
+	printf("data: %s\n\n", chunk_out);
+	print_base_buff(stream_id);
+
+	stream_id = checkout_raw_chunk(header_out.stream_id, chunk_out2, &header_out);
+	//printf("Stream_id: %d: \n",stream_id);
+	print_trf_buff(header_out2);
+	printf("data: %s\n\n", chunk_out2);
+
+	stream_id = checkout_raw_chunk(header_out.stream_id, chunk_out2, &header_out);
+	printf("id after links exhausted: %d\n", stream_id);
+
+	return 0;
 }
 
 /*int timing_test() {
@@ -236,7 +262,10 @@ int main() {
 
 	//ADD NEW TEST BATTERY FUNCTIONS
 	int(*test_battery[])() = {/*filestream_create_test,*/
+							  filestream_create_test,
 							  store_raw_chunk_test,
+							  store_raw_chunk_test,
+							  read_two_chunk_test
 							  /*test_cap_rawstream,*/
 							  /*timing_test,*/
 							  /*store_procbuff_test*/};
@@ -256,9 +285,20 @@ int main() {
 void print_base_buff(int id){
 		char target_file[LONG_FNAME_LENGTH];
 		trfb_header_t base;
-		sprintf(target_file, "%d.trf", id);
+		sprintf(target_file, "storage/%d.trf", id);
 		FILE *f_ptr = fopen(target_file, "rb");
         fread(&base, sizeof(trfb_header_t), 1, f_ptr);
-		printf("*~trfb file:\nid: %d\nrate: %d\nflink: %s\nllink: %s\nnlinks: %d\nruntime: %d\nbuild: %d\n",
-		 base.stream_id, base.sample_rate, base.first_file, base.last_file, base.num_links, base.run_time, base.build_state);
+		printf("*~trfb file:\nid: %d\nrate: %d\nflink: %s\nllink: %s\nnlinks: %d\nrlink: %s\nruntime: %lf\nbuild: %d\n",
+		 base.stream_id, base.sample_rate, base.first_file, base.last_file, base.num_links, base.readout_ptr, base.run_time, base.build_state);
+}
+
+void print_trf_buff(trf_header_t trgt) {
+	printf("TRF HEADER: \n");
+	printf("id: %d\n", trgt.stream_id);
+	printf("sample rate: %d\n", trgt.sample_rate);
+	printf("point in stream time: %lf\n", trgt.time_slice);
+	printf("payload size (bytes): %d\n", trgt.payload);
+	printf("previous link: %s\n",trgt.prev_file);
+	printf("next link: %s\n", trgt.next_file);
+	printf("link number: %d\n\n", trgt.link_id);
 }

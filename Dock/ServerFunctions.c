@@ -7,8 +7,8 @@
 
 int validate_cmd(char cmd) {
     int i;
-    int num_cmds = 4;
-    char val_char[] = {'k', 'm', 'l', 'e'};
+    int num_cmds = 5;
+    char val_char[] = {'k', 'm', 'l', 'e', 'v'};
 
     for(i = 0; i < num_cmds; i++) {
         if(cmd == val_char[i]) {
@@ -27,6 +27,7 @@ void print_cmdls() {
     printf("- 'l': (livestream) set up a line to the livestream output for the current incoming stream or\
      the next if none is currently running.\n");
     printf("- 'e': (end) return server standard input mode.\n");
+    printf("- 'v': (view) view the contents of the file system state files.");
     
 }
 void T_data_transform(char *work_in, char *work_out, int num_pkts) {

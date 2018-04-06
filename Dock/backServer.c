@@ -247,7 +247,9 @@ void *transform_manager() {
     printf("Transform manager up");
     while(TRNS_W.shutdown == 0) {
         stream_id = checkout_raw_chunk(stream_id, workload_raw, &work_meta);
-        printf("\nChecking out chunk: stream: %d\n", stream_id);
+        if(stream_id != 0) {
+            printf("\nChecking out chunk: stream: %d\n", stream_id);
+        }
         for(i = 0; i < work_meta.payload; i++) {
             printf("%c", workload_raw[i]);
         }

@@ -3,6 +3,20 @@
 #ifndef COMM_BRIDGE_INCLUDE
 #define COMM_BRIDGE_INCLUDE
 
+#define START_VAL -1386103603 //start value for serial packet
+#define PORT "/dev/cu.usbserial-DN03FU8O" //serial port
+
+//Packet of data sent over xbees
+//angle and pressure order: thumb, pointer, middle, ring, little
+//orientation order: x, y, z
+typedef struct serial_packet
+{
+  float serial_angle[5];
+  float serial_pressure[5];
+  float serial_orientation[3];
+  int32_t serial_temp;
+} serial_packet_t;
+
 //checks to see if there is a rig attempting to connect to the server
 //      --returns:
 //          --- 0: if there is nothing to connect to 

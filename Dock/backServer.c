@@ -2,6 +2,9 @@
 //The backend outter architecture is a process that commands 3 threads that manage incoming data,
 //  internal transformation, and outgoing data buffering
 
+//Compile with: gcc backServer.c FileAPI.c CommBridge.c DPSInterface.c PacketQueue.c ServerFunctions.c -o <exe_name> -lpthread
+//execute with ./<exe_name> 
+
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>

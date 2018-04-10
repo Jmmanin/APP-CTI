@@ -140,24 +140,31 @@ int store_procbuff_test() {
 int read_two_chunk_test() {
 	trf_header_t header_out;
 	trf_header_t header_out2;
+	trf_header_t header_out3;
 	char chunk_out[MAX_TRFBUFF_SIZE];
 	char chunk_out2[MAX_TRFBUFF_SIZE];
+	char chunk_out3[MAX_TRFBUFF_SIZE];
 	int stream_id;
 
 	stream_id = checkout_raw_chunk(0, chunk_out, &header_out);
-	//printf("Stream_id: %d: \n",stream_id);
+	printf("Stream_id: %d: \n",stream_id);
 	print_trf_buff(header_out);
 	printf("data: %s\n\n", chunk_out);
 	print_base_buff(stream_id);
+	printf("\n\n");
 
-	stream_id = checkout_raw_chunk(header_out.stream_id, chunk_out2, &header_out);
-	//printf("Stream_id: %d: \n",stream_id);
+	stream_id = checkout_raw_chunk(stream_id, chunk_out2, &header_out2);
+	printf("Stream_id: %d: \n",stream_id);
 	print_trf_buff(header_out2);
 	printf("data: %s\n\n", chunk_out2);
 
-	stream_id = checkout_raw_chunk(header_out.stream_id, chunk_out2, &header_out);
+	stream_id = checkout_raw_chunk(stream_id, chunk_out2, &header_out);
 	printf("id after links exhausted: %d\n", stream_id);
 
+	stream_id = checkout_raw_chunk(stream_id, chunk_out3, &header_out3);
+	printf("Stream_id: %d: \n",stream_id);
+	print_trf_buff(header_out3);
+	printf("data: %s\n\n", chunk_out3);
 	return 0;
 }
 

@@ -305,7 +305,6 @@ return:
 int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffer) {
     printf("** Stream_id: %d: \n",stream_id);
     int i;
-    trf_header_t target_meta;
     trfb_header_t target_base_meta;
     char target_buff[MAX_TRFBUFF_SIZE];
     char trfb_s[LONG_FNAME_LENGTH];
@@ -313,6 +312,7 @@ int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffe
     //setup target stream
     if(stream_id == 0) {
         stream_id = FS_pull_from_q();
+        printf("** stream id from q: %d\n", stream_id);
         if(stream_id == 0) {
             return 0; //there is nothing in the queue to work on
         }
@@ -324,13 +324,21 @@ int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffe
         return 0;  //there is nothing in the stream to work on. 
     }
 
-
+    printf("** reading out from: '%s'\n", target_base_meta.readout_ptr);
     //readout target file
     FILE *target_trf = fopen(target_base_meta.readout_ptr, "rb");
     fread(meta_buffer, sizeof(trf_header_t), 1, target_trf);
-    fread(chunk_buff, sizeof(char), target_meta.payload, target_trf);
+    fread(chunk_buff, sizeof(char), meta_buffer->payload, target_trf);
     fclose(target_trf);
-
+    for(i = 0; i < 15; i++) {
+        printf("%c", chunk_buff[i]);
+    }
+    printf("\n");
+    for(i = 0; i < 15; i++) {
+        printf("%x", chunk_buff[i]);
+    }
+    printf("\n");
+    printf("** Next file to read: %s\n", meta_buffer->next_file);
     //update pointers
     for(i = 0; i < LONG_FNAME_LENGTH; i++) {
         target_base_meta.readout_ptr[i] = meta_buffer->next_file[i];
@@ -493,6 +501,7 @@ int FS_pull_from_q() {
     fseek(work_q, 0, SEEK_END);
     q_length = ftell(work_q);
     if(q_length == 0 || q_length < sizeof(int)) {
+        printf("*** closing queue bc nothing here. length: %d bytes\n", q_length);
         fclose(work_q);
         return 0;
     }

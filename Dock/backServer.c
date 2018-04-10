@@ -249,6 +249,7 @@ void *transform_manager() {
         stream_id = checkout_raw_chunk(stream_id, workload_raw, &work_meta);
         if(stream_id != 0) {
             printf("\nChecking out chunk: stream: %d\n", stream_id);
+            printf("time: %lf, payload, %s", work_meta.time_slice, workload_raw);
         }
         for(i = 0; i < work_meta.payload; i++) {
             printf("%c", workload_raw[i]);

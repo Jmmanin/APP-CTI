@@ -1,7 +1,11 @@
 #include "UniversalDefines.h"
+#include "CommBridge.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <termios.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
 
 static int32_t start_buf = 0;
 static FILE *f_ptr = NULL;
@@ -11,11 +15,18 @@ int COMM_closedown() {
 }
 
 int COMM_monitor() {
-	return(0);
+    int nread;
+    
+    ioctl(fileno(f_ptr), FIONREAD, &nread);
+    
+    if(nread > 0)
+        return(0);
+    else
+        return(1);
 }
 
-int COMM_bridgeInit(char *payload_buffer, int *samp_rt_ptr) {
-	f_ptr = fopen("/dev/cu.usbserial-DN03FU8O", "r");
+int COMM_bridgeInit() {
+	f_ptr = fopen(PORT, "r");
 	
 	if(f_ptr==NULL)
 		return(1);
@@ -23,26 +34,22 @@ int COMM_bridgeInit(char *payload_buffer, int *samp_rt_ptr) {
 		return(0);
 }
 
-int COMM_getNextPacket(char *payout_buff) {
+serial_packet_t COMM_getNextPacket() {
     serial_packet_t packet_to_recv;
 	uint8_t byte_buf = 0;
 	uint32_t temp = 0;
     
-    if(start_recvd == start_val) //if start val received
+    if(start_buf == START_VAL)
     {
-		fread(&packet_to_recv, sizeof(struct serial_packet), 1, f_ptr); //read packet
+		fread(&packet_to_recv, sizeof(struct serial_packet), 1, f_ptr);
 
 		return(packet_to_recv);
     }
-    else //reads in bytes until start val is found
+    else
     {
-      fread(&byte_buf, sizeof(uint8_t), 1, f_ptr); //reads byte
-      start_buf = (uint32_t)start_buf >> 8; //shift inserts byte
+      fread(&byte_buf, sizeof(uint8_t), 1, f_ptr);
+      start_buf = (uint32_t)start_buf >> 8;
       temp = (uint32_t)byte_buf << 24;
       start_buf = start_buf | temp;
     }
-}
-
-int COMM_clientTerminated() {
-    return(COMM_closedown());
 }

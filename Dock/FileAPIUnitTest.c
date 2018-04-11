@@ -150,12 +150,12 @@ int read_two_chunk_test() {
 	printf("Stream_id: %d: \n",stream_id);
 	print_trf_buff(header_out);
 	printf("data: %s\n\n", chunk_out);
-	print_base_buff(stream_id);
+	//print_base_buff(stream_id);
 	printf("\n\n");
 
 	stream_id = checkout_raw_chunk(stream_id, chunk_out2, &header_out2);
 	printf("Stream_id: %d: \n",stream_id);
-	print_trf_buff(header_out2);
+	//print_trf_buff(header_out2);
 	printf("data: %s\n\n", chunk_out2);
 
 	stream_id = checkout_raw_chunk(stream_id, chunk_out2, &header_out);
@@ -163,7 +163,7 @@ int read_two_chunk_test() {
 
 	stream_id = checkout_raw_chunk(stream_id, chunk_out3, &header_out3);
 	printf("Stream_id: %d: \n",stream_id);
-	print_trf_buff(header_out3);
+	//print_trf_buff(header_out3);
 	printf("data: %s\n\n", chunk_out3);
 	return 0;
 }
@@ -269,7 +269,7 @@ int main() {
 
 	//ADD NEW TEST BATTERY FUNCTIONS
 	int(*test_battery[])() = {/*filestream_create_test,*/
-							  filestream_create_test,
+							  store_raw_chunk_test,
 							  store_raw_chunk_test,
 							  store_raw_chunk_test,
 							  read_two_chunk_test

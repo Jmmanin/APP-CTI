@@ -454,7 +454,7 @@ void FS_get_file_name(char *filename_s, int stream_id, int style, int iteration)
 /*returns 0 if add, 1 if queue issue*/
 int FS_add_to_q(int stream_id) {
     int q_length;
-    int num_jobs;
+    //int num_jobs;
     int *qbuf;
     
     if(!FS_check_file(TRF_QUEUE)) {
@@ -465,30 +465,24 @@ int FS_add_to_q(int stream_id) {
     }
 
     FILE *work_q = fopen(TRF_QUEUE, "rb");
-    
-    fseek(work_q, 0, SEEK_END);
-    q_length = ftell(work_q);
-    fseek(work_q, 0, SEEK_SET);
-    num_jobs = q_length / sizeof(int);
-
-    qbuf = (int *) malloc(q_length + sizeof(int));
-    fread(qbuf, sizeof(int), num_jobs, work_q);
+    fread(&q_length, sizeof(int), 1, work_q);
+    q_length += 1;
+    qbuf = (int *) malloc(sizeof(int) * q_length);
+    fread(qbuf, sizeof(int), (q_length-1), work_q);
     fclose(work_q);
-    
-    qbuf[num_jobs] = stream_id;
-    num_jobs += 1;
+
+    qbuf[q_length - 1] = stream_id;
 
     work_q = fopen(TRF_QUEUE, "wb");
-    fwrite(qbuf, sizeof(int), num_jobs, work_q);
-
+    fwrite(&q_length, sizeof(int), 1, work_q);
+    fwrite(qbuf, sizeof(int), q_length, work_q);
     fclose(work_q);
-    free(qbuf);
     return 0;
 }
 
 int FS_pull_from_q() {
     int q_length;
-    int num_jobs;
+    //int num_jobs;
     int next_job;
     int *qbuf;
     
@@ -497,26 +491,26 @@ int FS_pull_from_q() {
     }
 
     FILE *work_q = fopen(TRF_QUEUE, "rb");
-    
-    fseek(work_q, 0, SEEK_END);
-    q_length = ftell(work_q);
-    if(q_length == 0 || q_length < sizeof(int)) {
-        printf("*** closing queue bc nothing here. length: %d bytes\n", q_length);
+    fread(&q_length, sizeof(int), 1, work_q);
+    //printf("*** jobs in queue: %d\n", num_jobs);
+    if(q_length == 0) {
+        //printf("*** closing queue bc nothing here. length: %d bytes\n", q_length);
         fclose(work_q);
         return 0;
     }
 
-    fseek(work_q, 0, SEEK_SET);
-    num_jobs = q_length / sizeof(int);
-
-    qbuf = (int *) malloc(q_length);
-    fread(qbuf, sizeof(int), num_jobs, work_q);
+    qbuf = (int *) malloc(sizeof(int) * q_length);
+    fread(qbuf, sizeof(int), q_length, work_q);
     fclose(work_q);
     
     next_job = qbuf[0];
+    q_length -= 1;
     
     work_q = fopen(TRF_QUEUE, "wb");
-    fwrite(&qbuf[1], sizeof(int), (num_jobs-1), work_q);
+    fwrite(&q_length, sizeof(int), 1, work_q);
+    fwrite(&qbuf[1], sizeof(int), q_length, work_q);
+    fclose(work_q);
+    free(qbuf);
 
     return next_job;
 }
@@ -586,7 +580,9 @@ void FS_Init() {
 
     //check for work queue
     if(!FS_check_file(TRF_QUEUE)) {
+        int init_q_size = 0;
         FILE *trf_queue = fopen(TRF_QUEUE, "wb");
+        fwrite(&init_q_size, sizeof(int), 1, trf_queue);
         fclose(trf_queue);
     }
 }

@@ -4,7 +4,7 @@
 #ifndef DEFINES_INCLUDE
 #define DEFINES_INCLUDE
 
-#define INP_PKT_SIZE 1            /*number of bytes/packet incoming from the rig*/
+#define INP_PKT_SIZE 2            /*number of bytes/packet incoming from the rig*/
 #define TRNS_PKT_SIZE 2           /*number of bytes/packet after being run through transform function*/
 #define MAX_STREAM_TIME  300      /*length of time in seconds a single stream will be constrained to*/
 #define MAX_SAMPLE_RATE 60        /*60hz max sample rate*/

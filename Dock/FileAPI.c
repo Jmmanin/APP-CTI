@@ -303,7 +303,7 @@ return:
     n > 0 - stream_id work buffer belongs to. 
 */
 int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffer) {
-    printf("** Stream_id: %d: \n",stream_id);
+    //printf("** Stream_id: %d: \n",stream_id);
     int i;
     trfb_header_t target_base_meta;
     char target_buff[MAX_TRFBUFF_SIZE];
@@ -312,7 +312,7 @@ int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffe
     //setup target stream
     if(stream_id == 0) {
         stream_id = FS_pull_from_q();
-        printf("** stream id from q: %d\n", stream_id);
+        //printf("** stream id from q: %d\n", stream_id);
         if(stream_id == 0) {
             return 0; //there is nothing in the queue to work on
         }
@@ -320,17 +320,19 @@ int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffe
 
     target_base_meta = FS_get_trfb(stream_id);
     if(strcmp(target_base_meta.readout_ptr, "") == 0) {
-        printf("** exiting bc read ptr == ''\n");
+        printf("** reading nothing from stream %d\n", stream_id);
         return 0;  //there is nothing in the stream to work on. 
     }
 
-    printf("** reading out from: '%s'\n", target_base_meta.readout_ptr);
+    //printf("** reading out from: '%s'\n", target_base_meta.readout_ptr);
     //readout target file
+    //printf("readout_ptr = '%s'", target_base_meta.readout_ptr);
     FILE *target_trf = fopen(target_base_meta.readout_ptr, "rb");
-    fread(meta_buffer, sizeof(trf_header_t), 1, target_trf);
+    int ro = fread(meta_buffer, sizeof(trf_header_t), 1, target_trf);
+    printf("**reading from : '%s' : %d bytes, read %d\n", target_base_meta.readout_ptr, meta_buffer->payload, ro);
     fread(chunk_buff, sizeof(char), meta_buffer->payload, target_trf);
     fclose(target_trf);
-    for(i = 0; i < 15; i++) {
+    /*for(i = 0; i < 15; i++) {
         printf("%c", chunk_buff[i]);
     }
     printf("\n");
@@ -338,7 +340,7 @@ int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffe
         printf("%x", chunk_buff[i]);
     }
     printf("\n");
-    printf("** Next file to read: %s\n", meta_buffer->next_file);
+    printf("** Next file to read: %s\n", meta_buffer->next_file);*/
     //update pointers
     for(i = 0; i < LONG_FNAME_LENGTH; i++) {
         target_base_meta.readout_ptr[i] = meta_buffer->next_file[i];
@@ -349,7 +351,7 @@ int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffe
         }
     }
     
-    printf("**next read: %s\n", target_base_meta.readout_ptr);
+    //printf("**next read: %s\n", target_base_meta.readout_ptr);
     FS_get_file_name(trfb_s, stream_id, TRFB, 0);
     FILE *trfb = fopen(trfb_s, "wb");
     fwrite(&target_base_meta, sizeof(trfb_header_t), 1, trfb);

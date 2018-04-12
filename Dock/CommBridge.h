@@ -33,7 +33,8 @@ int COMM_monitor();
 //--- 1: if connection was unsuccessful 
 int COMM_bridgeInit();
 
-//Opens serial connection to rig 
+//Gets next packet of information from serial
+//Waits until start_val has been received and then reads packet
 //--returns serial packet
 serial_packet_t COMM_getNextPacket();
 

@@ -9,6 +9,7 @@
 #define MAX_STREAM_TIME  300      /*length of time in seconds a single stream will be constrained to*/
 #define MAX_SAMPLE_RATE 60        /*60hz max sample rate*/
 #define STD_TRANSP_TIME 10         /*number of seconds worth of data buffered by dock before shipping off to file system*/
+#define DOCK_MISS_TRIGGER 15      /*number of loop misses before we declare a rig offline*/
 
 #define SVR_MONITORING_DELAY 0.25 /*how long the master thread in the server will pause between cycles*/
 

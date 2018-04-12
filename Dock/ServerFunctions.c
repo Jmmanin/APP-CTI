@@ -4,6 +4,7 @@
 
 #include "FileAPI.h"
 #include "UniversalDefines.h"
+#include "CommBridge.h"
 
 int validate_cmd(char cmd) {
     int i;
@@ -40,4 +41,8 @@ void T_data_transform(char *work_in, char *work_out, int num_pkts) {
     }
 
     work_out = work_out_buff;
+}
+
+void Dock_convert2charArray(serial_packet_t *input, char *output) {
+    
 }

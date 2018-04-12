@@ -156,87 +156,84 @@ void *input_manager() {
 
 void *dock_manager() {
     int i;
-    int transfer, mode_switch;
-    int max_pkts, curr_pkts, samp_rt;
-    int hasNextPkt;
-    char currPkt[INP_PKT_SIZE];
-    char *holdBuff;
+    int max_pkts, miss_pkts;
+    int samp_rate = 1;
+    int rig_active = 0;
+    int new_stream_flag = 1;
+    
     clock_t start_ti, end_ti, wait_ti;
 
-    Q_Init(INP_PKT_SIZE);
-    curr_pkts = 0;
+    char *holdBuff;
+    char curr_pkt_ser;
+    serial_packet_t curr_pkt;
 
-    while(DOCK_W.exit_code == 0) {
-        //Either look for rig or get next packet
-        if(transfer == 1) {
-            //in packet transferring mode
-            hasNextPkt = COMM_getNextPacket(currPkt);
-            if(!hasNextPkt) {
-                mode_switch = COMM_clientTerminated();
-            } else {
-                if(livestream_state.go_live == 1) {
-                    Q_addData(currPkt);
-                }
-                if(curr_pkts < max_pkts) {
-                    for(i = 0; i < INP_PKT_SIZE; i++) {
-                        //printf("%c -> %d < %d\n", currPkt[i], (curr_pkts*INP_PKT_SIZE)+i, max_pkts);
-                        holdBuff[(curr_pkts*INP_PKT_SIZE)+i] = currPkt[i];
-                    }
-                    curr_pkts += 1;
-                } else {
-                    /*int r;
-                    for(r = 0; r < samp_rt * STD_TRANSP_TIME * INP_PKT_SIZE; r++) {
-                        printf("%c", holdBuff[r]);
-                    }
-                    printf("\n");*/
-                    store_raw_chunk(DOCK_W.targetted_stream, holdBuff, max_pkts);
-                    //free(holdBuff);
-                    //holdBuff = (char *) malloc(samp_rt * STD_TRANSP_TIME * INP_PKT_SIZE);
-                    for(i = 0; i < INP_PKT_SIZE; i++) {
-                        holdBuff[i] = currPkt[i]; //always writes out to the 0th index so no offset needed
-                    }
-                    curr_pkts = 1;
-                }
+    printf("data pkt struct size: %d", sizeof(serial_packet_t));
+    Q_Init(INP_PKT_SIZE);  // creating instance of live transfer q
+    curr_pkts = 0;
+    holdBuff = (char *) malloc(MAX_TRFBUFF_SIZE);
+
+    while(DOCK_W.shutdown == 0) {
+        if(!rig_active) {
+            rig_active = COMM_bridgeInit();
+            if(rig_active && new_stream_flag) {
+                DOCK_W.targetted_stream = create_new_rawstream(samp_rate);
+                livestream_state.stream_id = DOCK_W.targetted_stream;
+                livestream_state.sample_rate = samp_rate;
+                new_stream_flag = 0;
             }
         } else {
-            //in rig searching mode
-            mode_switch = COMM_monitor();
-        }
-        if(DOCK_W.shutdown == 1) {
-            DOCK_W.exit_code = 1;
-            if(transfer) {
-                store_raw_chunk(DOCK_W.targetted_stream, holdBuff, curr_pkts);
-                COMM_closedown();
-            }
-            continue;
-        }
+            if(!COMM_monitor()) {
+                curr_pkt = COMM_getNextPacket();
+                Dock_convert2charArray(serial_packet_t *curr_pkt, char *curr_pkt_ser);
+                
+                if(livestream_state.go_live) {
+                    Q_addData(curr_pkt_ser);
+                }
+                
+                for(i = 0; i < INP_PKT_SIZE; i++) {
+                    holdBuff[(curr_pkts*INP_PKT_SIZE) + i] = curr_pkt_ser[i];
+                }
+                curr_pkts += 1;
 
-        if(mode_switch) {
-            if(!transfer) { //go from search -> transfer
-                transfer = 1;
-                COMM_bridgeInit(holdBuff, &samp_rt);
-                max_pkts = STD_TRANSP_TIME * samp_rt;
-                DOCK_W.targetted_stream = create_new_rawstream(samp_rt);
-                livestream_state.sample_rate = samp_rt;
-                livestream_state.stream_id = DOCK_W.targetted_stream;
+               if(curr_pkts >= (MAX_TRFBUFF_SIZE / INP_PKT_SIZE)) {
+                    store_raw_chunk(DOCK_W.targetted_stream, holdBuff, (MAX_TRFBUFF_SIZE / INP_PKT_SIZE));
+                    curr_pkts = 0;
+                }
+
             } else {
-                COMM_closedown();
-                store_raw_chunk(DOCK_W.targetted_stream, holdBuff, curr_pkts); 
-                transfer = 0;
-                livestream_state.sample_rate = 0;
-                livestream_state.stream_id = 0;
-
+                miss_pkts += 1;
             }
-            mode_switch = 0;
         }
 
-        start_ti = clock();   //debug
+        if(miss_pkts > DOCK_MISS_TRIGGER) {
+            if(curr_pkts > 0) {
+                store_raw_chunk(DOCK_W.targetted_stream, holdBuff, curr_pkts);
+            }
+            cap_rawstream(DOCK_W.targetted_stream);
+
+            DOCK_W.targetted_stream = 0;
+            curr_pkts = 0;
+            rig_active = 0;
+            new_stream_flag = 1;
+        }
+
+        start_ti = clock();   
         while(wait_ti < 0.33) {
             end_ti = clock();
             wait_ti = (double) (end_ti - start_ti) / CLOCKS_PER_SEC;
         }
         wait_ti = 0;
     }
+
+    if(rig_active) {
+        if(curr_pkts > 0) {
+            store_raw_chunk(DOCK_W.targetted_stream, holdBuff, curr_pkts);
+        }
+        cap_rawstream(DOCK_W.targetted_stream);
+    }
+    COMM_closedown();
+    livestream_state.go_live = 0;
+    free(holdBuff);
 }
 
 void *transform_manager() {

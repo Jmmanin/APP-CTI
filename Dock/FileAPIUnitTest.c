@@ -7,7 +7,7 @@
 #include "FileAPI.h"
 #include "UniversalDefines.h"
 
-#define NUM_TESTS 4  /*Tests in the battery*/
+#define NUM_TESTS 2  /*Tests in the battery*/
 
 void print_base_buff(int base);
 void print_trf_buff(trf_header_t trgt);
@@ -250,6 +250,59 @@ int read_two_chunk_test() {
 	return 0;
 }*/
 
+int throughput_test() {
+	FS_Init();
+
+	char *buff1 = "Fi rs tB uf fM at ey";
+	char *buff2 = "Se co nd Bu ff Ma te";
+	char *buff3 = "An ot th er Bu ff";
+	char *buff4 = "So me th in gE ls e.";
+
+	char readoutBuff[MAX_TRFBUFF_SIZE];
+	trf_header_t readoutHeader; 
+
+	//store all of 1
+	int stream1 = create_new_rawstream(1);
+	store_raw_chunk(stream1, buff1, 7);
+	store_raw_chunk(stream1, buff2, 7);
+	store_raw_chunk(stream1, buff3, 6);
+	store_raw_chunk(stream1, buff4, 7);
+
+	//store and do part of 2
+	int stream2 = create_new_rawstream(1);
+	store_raw_chunk(stream2, buff3, 6);
+	checkout_raw_chunk(stream2, readoutBuff, &readoutHeader);
+	store_processed_chunk(stream2, readoutBuff, readoutHeader.payload);
+	store_raw_chunk(stream2, buff2, 7);
+	store_raw_chunk(stream2, buff3, 6);
+	store_raw_chunk(stream2, buff4, 7);
+
+	//do rest of 2
+	checkout_raw_chunk(stream2, readoutBuff, &readoutHeader);
+	store_processed_chunk(stream2, readoutBuff, readoutHeader.payload);
+	checkout_raw_chunk(stream2, readoutBuff, &readoutHeader);
+	store_processed_chunk(stream2, readoutBuff, readoutHeader.payload);
+	checkout_raw_chunk(stream2, readoutBuff, &readoutHeader);
+	store_processed_chunk(stream2, readoutBuff, readoutHeader.payload);
+
+	checkout_raw_chunk(stream1, readoutBuff, &readoutHeader);
+	store_processed_chunk(stream1, readoutBuff, readoutHeader.payload);
+	checkout_raw_chunk(stream1, readoutBuff, &readoutHeader);
+	store_processed_chunk(stream1, readoutBuff, readoutHeader.payload);
+	checkout_raw_chunk(stream1, readoutBuff, &readoutHeader);
+	store_processed_chunk(stream1, readoutBuff, readoutHeader.payload);
+
+	cap_rawstream(stream1);
+	cap_rawstream(stream2);
+	cap_processed_file(stream1);
+	cap_processed_file(stream2);
+
+	print_base_buff(stream1);
+	print_base_buff(stream2);
+	return 0;
+}
+
+
 int complete_main_unit_test() {
 	int id;
 	id = create_new_rawstream(1); //create a rawstream of 1 sample/second
@@ -268,11 +321,11 @@ int complete_main_unit_test() {
 int main() {
 
 	//ADD NEW TEST BATTERY FUNCTIONS
-	int(*test_battery[])() = {/*filestream_create_test,*/
+	int(*test_battery[])() = {/*filestream_create_test,
 							  store_raw_chunk_test,
 							  store_raw_chunk_test,
 							  store_raw_chunk_test,
-							  read_two_chunk_test
+							  read_two_chunk_test*/
 							  /*test_cap_rawstream,*/
 							  /*timing_test,*/
 							  /*store_procbuff_test*/};

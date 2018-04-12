@@ -22,14 +22,15 @@ typedef struct serial_packet
 
 //checks if there is information in serial buffer
 //--returns:
-//--- 0: if there is data
-//--- 1: if there is no data
+//--- 0: if there is no data
+//--- non-zero: if there is data
 int COMM_monitor();
 
-//Opens serial connection to rig 
+//Opens serial connection to rig and generates orientation offsets
+//Bases offsets on average orientations of first 5 packets received
 //--returns:
 //--- 0: if connection was successful
-//--- 1: if connection was unsuccessful
+//--- 1: if connection was unsuccessful 
 int COMM_bridgeInit();
 
 //Opens serial connection to rig 

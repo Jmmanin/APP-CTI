@@ -1,36 +1,55 @@
 #include "UniversalDefines.h"
+#include "CommBridge.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
+#include <termios.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
 
-char datas[26] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'};
-int curr_data = 0;
+static int32_t start_buf = 0;
+static FILE *f_ptr = NULL;
 
 int COMM_closedown() {
-    //does clean close down of bridge
-    return 1;
+	return(fclose(f_ptr));
 }
 
 int COMM_monitor() {
-    return 1;
+    int nread;
+    
+    ioctl(fileno(f_ptr), FIONREAD, &nread);
+    
+    if(nread > 0)
+        return(0);
+    else
+        return(1);
 }
 
-void COMM_bridgeInit(char *payload_buffer, int *samp_rt_ptr) {
-    int sample_rate = 3;
-    *samp_rt_ptr = sample_rate;
-    payload_buffer = (char *) malloc(INP_PKT_SIZE * STD_TRANSP_TIME * sample_rate);
+int COMM_bridgeInit() {
+	f_ptr = fopen(PORT, "r");
+	
+	if(f_ptr==NULL)
+		return(1);
+	else
+		return(0);
 }
 
-int COMM_getNextPacket(char *payout_buff) {
-    //puts the transmitted packet in the payout buffer and returns
-    //exit code has to do with availability of next packet
-    payout_buff[0] = datas[curr_data];
-    curr_data +=1;
-    if(curr_data == 26) {
-        curr_data = 0;
+serial_packet_t COMM_getNextPacket() {
+    serial_packet_t packet_to_recv;
+	uint8_t byte_buf = 0;
+	uint32_t temp = 0;
+    
+    if(start_buf == START_VAL)
+    {
+		fread(&packet_to_recv, sizeof(struct serial_packet), 1, f_ptr);
+
+		return(packet_to_recv);
     }
-    return 1;
-}
-
-int COMM_clientTerminated() {
-    return 0;
+    else
+    {
+      fread(&byte_buf, sizeof(uint8_t), 1, f_ptr);
+      start_buf = (uint32_t)start_buf >> 8;
+      temp = (uint32_t)byte_buf << 24;
+      start_buf = start_buf | temp;
+    }
 }

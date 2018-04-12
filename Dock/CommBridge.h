@@ -10,7 +10,7 @@
 
 //Packet of data sent over xbees
 //--angle order: pointer, middle, ring, little
-//--pressure order: closest to little finger to closest to thumb
+//--pressure order: closest to little thumb to closest to little finger
 //--orientation order: x, y, z
 typedef struct serial_packet
 {

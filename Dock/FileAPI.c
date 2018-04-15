@@ -154,7 +154,7 @@ int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_numPkts) {
         trailing_trf = fopen(new_header.prev_file, "wb");
         fwrite(&prevtrail_header, sizeof(trf_header_t), 1, trailing_trf);
         fwrite(&prevtrail_payload, sizeof(char), prevtrail_header.payload, trailing_trf);
-        fclose; 
+        fclose(trailing_trf); 
     }  
 
     if(stream_info.run_time >= MAX_STREAM_TIME) {
@@ -386,9 +386,9 @@ int read_processed_stream(int stream_id, prdat_header_t *meta_buffer, char *data
     return 0;
 }
 
-int db_backup() {} /*lol need to implement these eventually*/
-int db_restore_db() {}
-int db_restore_file() {}
+//int db_backup() {} /*lol need to implement these eventually*/
+//int db_restore_db() {}
+//int db_restore_file() {}
 
 //Internal functionalities
 int FS_create_stream_id() {

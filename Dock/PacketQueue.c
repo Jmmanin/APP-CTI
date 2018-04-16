@@ -11,6 +11,7 @@ int q_length;       //length of q in number of packets
 int front = 0;
 int rear = -1;
 int itemCount = 0;
+int initd = 0;
 
 //prototypes
 int Q_isFull();
@@ -19,18 +20,23 @@ int Q_getPacketSize();
 
 
 void Q_Init(int new_size) {
-    q_length = Q_START_SIZE;
-    front = 0;
-    rear = -1;
-    itemCount = 0;
-    packetSize = new_size;
-    dataArray = malloc((packetSize*q_length));
+    if(!initd) {
+        q_length = Q_START_SIZE;
+        front = 0;
+        rear = -1;
+        itemCount = 0;
+        packetSize = new_size;
+        dataArray = malloc((packetSize*q_length));
+    }
+    initd = 1;
 
 }
 
 void Q_reset() {
-    free(dataArray);
-    Q_Init(Q_getPacketSize());
+    if(initd) {
+        free(dataArray);
+        Q_Init(Q_getPacketSize());
+    }
 }
 
 int Q_getPacketSize() {
@@ -75,7 +81,11 @@ void Q_addData(char *data) {
 
 }
 
-void Q_removeData(char *output_buff) {
+int Q_removeData(char *output_buff) {
+    if(itemCount == 0) {
+        return 0;
+    }
+
     int i;
     for(i = 0; i < packetSize; i++) {
         dataArray[(front*packetSize)+i] = output_buff[i];
@@ -87,6 +97,7 @@ void Q_removeData(char *output_buff) {
     }
 	
    itemCount--;
+   return 1;
 }
 
 void Q_resizeAndAdd(char *data) {

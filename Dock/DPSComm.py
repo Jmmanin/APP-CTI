@@ -113,3 +113,6 @@ class DPS_interface():
         # print("Length of release string: " + len(rst_msg))
         self.sock.sendall(rst_msg.encode())
 
+    def packet_reconstruct(self, byte_pkt):
+        
+

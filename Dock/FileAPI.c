@@ -565,7 +565,7 @@ trfb_header_t FS_get_trfb(int stream_id) {
 //Ensure neccessary files are present for work, creates if not
 void FS_Init() {
     //intial values
-    int state_init = 1;
+    int state_init = 0;
 
     //check for state table
     if(!FS_check_file(STATE_TABLE)) {

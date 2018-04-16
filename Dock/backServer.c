@@ -12,7 +12,7 @@
 #include "ServerFunctions.h"
 #include "UniversalDefines.h"
 #include "FileAPI.h"
-#include "DPSInterface.h"
+#include "DPSComm.h"
 #include "CommBridge.h"
 #include "PacketQueue.h"
 
@@ -46,8 +46,7 @@ void *input_manager();
 void S_Init_CommBlock();
 void S_flush_CommBlock(thread_state_t *target);
 void S_View_Monitior();
-void S_Create_livestream();
-void S_End_livestream();
+void S_View_fileSystem();
 void S_Send_Shutdown();
 
 
@@ -63,6 +62,7 @@ int main(int argc, char *argv[]) {
     //main thread variables
     S_Init_CommBlock();
     FS_Init();
+    livestream_state.go_live = 0;
 
     //thread set up
     if(pthread_create(&thread_collection[0], NULL, dock_manager, NULL)) {
@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
     if(pthread_create(&thread_collection[3], NULL, input_manager, NULL)) {
         printf("Failed to create input handler\n");
     }
-    printf("Worker spawn complete\n");
+    printf("Worker spawn complete.\n");
 
     while(run) {
         //check status of the workers
@@ -94,11 +94,8 @@ int main(int argc, char *argv[]) {
                 run = 0;
                 S_Send_Shutdown();
                 break;
-            case 'l':
-                S_Create_livestream();
-                break;
-            case 'e':
-                S_End_livestream();
+            case 'v':
+                S_View_fileSystem();
                 break;
         }
         
@@ -123,10 +120,11 @@ int main(int argc, char *argv[]) {
 
     //Close down protocols
     for(i = 0; i < NUM_WORKERS; i++) {
-        printf("Waiting on worker %d to shut down.\n", i);
+        printf("Waiting on worker %d to shut down....", i);
         pthread_join(thread_collection[i], NULL);
+        printf(" thread closed.\n");
     }
-    printf("\nClosed Down. Bye!\n");
+    printf("\nServer Closed Down. Bye!\n");
 }
 
 //************************
@@ -158,7 +156,7 @@ void *dock_manager() {
     int i;
     int max_pkts, miss_pkts;
     int samp_rate = 1;
-    int rig_active = 0;
+    int rig_active = 1;  //Active low
     int new_stream_flag = 1;
     
     clock_t start_ti, end_ti, wait_ti;
@@ -167,15 +165,15 @@ void *dock_manager() {
     char curr_pkt_ser;
     serial_packet_t curr_pkt;
 
-    printf("data pkt struct size: %d", sizeof(serial_packet_t));
+    //printf("data pkt struct size: %d", sizeof(serial_packet_t));
     Q_Init(INP_PKT_SIZE);  // creating instance of live transfer q
     curr_pkts = 0;
     holdBuff = (char *) malloc(MAX_TRFBUFF_SIZE);
 
     while(DOCK_W.shutdown == 0) {
-        if(!rig_active) {
+        if(rig_active) {
             rig_active = COMM_bridgeInit();
-            if(rig_active && new_stream_flag) {
+            if(!rig_active && new_stream_flag) {
                 DOCK_W.targetted_stream = create_new_rawstream(samp_rate);
                 livestream_state.stream_id = DOCK_W.targetted_stream;
                 livestream_state.sample_rate = samp_rate;
@@ -184,7 +182,7 @@ void *dock_manager() {
         } else {
             if(!COMM_monitor()) {
                 curr_pkt = COMM_getNextPacket();
-                Dock_convert2charArray(serial_packet_t *curr_pkt, char *curr_pkt_ser);
+                Dock_convert2charArray(&curr_pkt, curr_pkt_ser);
                 
                 if(livestream_state.go_live) {
                     Q_addData(curr_pkt_ser);
@@ -199,6 +197,7 @@ void *dock_manager() {
                     store_raw_chunk(DOCK_W.targetted_stream, holdBuff, (MAX_TRFBUFF_SIZE / INP_PKT_SIZE));
                     curr_pkts = 0;
                 }
+                miss_pkts = 0;
 
             } else {
                 miss_pkts += 1;
@@ -213,11 +212,11 @@ void *dock_manager() {
 
             DOCK_W.targetted_stream = 0;
             curr_pkts = 0;
-            rig_active = 0;
+            rig_active = 1;
             new_stream_flag = 1;
         }
 
-        start_ti = clock();   
+        start_ti = clock();   //polls for packets at ~3Hz
         while(wait_ti < 0.33) {
             end_ti = clock();
             wait_ti = (double) (end_ti - start_ti) / CLOCKS_PER_SEC;
@@ -225,15 +224,15 @@ void *dock_manager() {
         wait_ti = 0;
     }
 
-    if(rig_active) {
+    if(!rig_active) {
         if(curr_pkts > 0) {
             store_raw_chunk(DOCK_W.targetted_stream, holdBuff, curr_pkts);
         }
         cap_rawstream(DOCK_W.targetted_stream);
     }
     COMM_closedown();
-    livestream_state.go_live = 0;
     free(holdBuff);
+    DOCK_W.exit_code = 1;
 }
 
 void *transform_manager() {
@@ -241,19 +240,19 @@ void *transform_manager() {
     int stream_id = 0; //internal stream id prevents external modifications
     int output_payload;
     trf_header_t work_meta;
-    char *workload_raw;
-    char *workload_proc;
+    char workload_raw[MAX_TRFBUFF_SIZE];
+    char workload_proc[MAX_PRDATBUFF_SIZE];
     int i;
-    printf("Transform manager up");
+
     while(TRNS_W.shutdown == 0) {
         stream_id = checkout_raw_chunk(stream_id, workload_raw, &work_meta);
-        if(stream_id != 0) {
+        /*if(stream_id != 0) {
             printf("\nChecking out chunk: stream: %d\n", stream_id);
             printf("time: %lf, payload, %s", work_meta.time_slice, workload_raw);
         }
         for(i = 0; i < work_meta.payload; i++) {
             printf("%c", workload_raw[i]);
-        }
+        }*/
         TRNS_W.targetted_stream = stream_id;
         
         if(stream_id != 0) {
@@ -266,88 +265,99 @@ void *transform_manager() {
 }
 
 void *dps_manager() {
-    trf_header_t transform_guide;
-    int state = 0;
-    int response = 0;
-    int ack;
-    char curr_pkt[INP_PKT_SIZE];
-    char sendout_pkt[TRNS_PKT_SIZE];
-
-    while(!DPS_W.shutdown) {
-        if(state == 0) {
-            state = DPS_monitor();
-            DPS_setup(state, livestream_state.sample_rate); //calls the right type of setup
+    int q_state, f_state, trgt_stream, client_up, release_state;
+    int dps_servmode = -1;
+    char pkt_buff[2];
+    char proc_buff[MAX_PRDATBUFF_SIZE];
+    prdat_header_t stream_header;
+    
+    DPS_socketInit();
+    Q_Init(INP_PKT_SIZE);
+    
+    while(1) {
+            //check for shutdown command.
+        if(DPS_W.shutdown == 1) {
+            DPS_close_port();
+            break;
         }
-        if(state == 1) { //single request i/o
-            response = DPS_getRequest(); //blocking?
-            DPS_honorRequest(response);
-            if(response == -1) { //whatever response code means client wants to shift to livestream mode
-                DPS_setupLivestreamState(livestream_state.sample_rate);
-                //Q_reset(); //do we want to do that
-                livestream_state.go_live = 1;
-                state == 2;
-            }
-            if(response == -2) { //whatever response code means client would like to close
-                DPS_closedown();
-                state = 0;
-            }
-        } else if(state == 2 && livestream_state.go_live == 1) { //livestream i/o
-            Q_removeData(curr_pkt);
-            T_data_transform(curr_pkt, sendout_pkt, 1);
-            ack = DPS_streamNextPacket(sendout_pkt);
-            if(!ack) {
-                DPS_setupRequestState();
-                state = 1;
-            }
+            //jump to actions associated with current state
+        switch(dps_servmode) {
+                    //opening new connection
+            case -1:
+                //printf("Waiting on Client...\n");
+                client_up = DPS_getClient();
+                if(client_up) {
+                    dps_servmode = 0;
+                }
+                continue;
+                    //getting the transfer mode context 
+            case 0:
+                //printf("Waiting on context...\n");
+                dps_servmode = DPS_getClientState();
+                //printf("Client found, asking mode: %d\n", dps_servmode);
+                if(dps_servmode == 2) {
+                    Q_reset();
+                    livestream_state.go_live = 1;
+                }
+                break;
+                    //reading a specific stream by id
+            case 1:
+                //printf("Asking client for stream id...");
+                DPS_readStreamAddr(&trgt_stream);
+                //printf("given id: %d\n", trgt_stream);
+                f_state = file_sim(trgt_stream, proc_buff);
+                if(!f_state) {
+                    stream_header.payload = 0;
+                } else {
+                    stream_header.payload = 18;
+                }
+
+                //printf("Replaying with payload...");
+                DPS_returnStreamPayload(stream_header.payload, proc_buff);
+                //printf("done.\n");
+                break;
+                    //get streaming packets
+            case 2:
+                q_state = Q_removeData();
+                //printf("Got packet from queue. Status: %d, pkt: '%s'\n", q_state, pkt_buff);
+                if(q_state == 1) {
+                    //printf("Transmitting paket...");
+                    DPS_sendPacket(pkt_buff);
+                    //printf("done.\n");
+                }
+                break;
+            default:
+                dps_servmode = 0;
+                continue;
         }
+        //printf("checking for mode release...");
+        release_state = DPS_check_release();
+        if (release_state == 1) {
+            //printf("released.\n");
+            dps_servmode = 0;
+        } else if (release_state == 2) {
+            //printf("released and closed.\n");
+            dps_servmode = -1;
+            DPS_close_port();
+        }
+        if(release_state != 0) {
+            livestream_state.go_live = 0;
+        }
+        //printf("\n");
     }
-}
-
-void *livestream_manager() {
-    if(livestream_state.go_live == 0) {
-        printf("LIVS LOG: Livestream created without being in live mode. Sleeping worker.\n");
-    }
-
-
+    DPS_W.exit_code = 1;
 }
 
 //*************************
 //  King Thread Functions
 //*************************
-void S_Create_livestream() {
-    if(livestream_state.go_live == 1) {
-        printf("Mode is already in livestream. ");
-        if(DOCK_W.targetted_stream != 0) {
-            printf("Currently targetting id: %d\n\n", DOCK_W.targetted_stream);
-        } else {
-            printf("No stream is currently live.\n\n");
-        }
-        return;
-    } 
-
-    printf("Server is now prepared to livestream from this point.\n");
-    Q_reset();
-    livestream_state.stream_id = DOCK_W.targetted_stream;
-    livestream_state.go_live = 1;
-
-    //pthread_create(&thread_collection[4], NULL, livestream_manager, NULL);
-}
-
-void S_End_livestream() {
-    if(livestream_state.go_live == 0) {
-        printf("Dock is not currently attempting to stream.\n");
-        return;
-    }
-    printf("Live stream mode turned off");
-    livestream_state.go_live = 0;
-}
 
 void S_View_Monitior() {
     int i;
 
     printf("Livestream state struct:\n");
     printf("-Currently in live mode: %d\n", livestream_state.go_live);
-    printf("-Stream identifier: %d\n", livestream_state.stream_id);
+    printf("-Target stream identifier: %d\n", livestream_state.stream_id);
     printf("-Stream sample rate: %d\n", livestream_state.sample_rate);
 
     printf("\nWorker Arrangement: 0 <= Dock, 1 <= Transform, 2 <= DPS Manager, 3 <= Input Handler\n\n");
@@ -392,4 +402,47 @@ void S_Send_Shutdown() {
     for(i = 0; i < NUM_WORKERS; i++) {
         comm_block[i].shutdown = 1;
     }
+}
+
+void S_View_fileSystem() {
+    FS_Init();
+
+    FILE *st, *fs, *rq;
+    int st_buff;
+    char fs_buff[1024];
+    int rq_buff;
+    int reading = 1;
+    
+    //state table
+    printf("Current File System State\n");
+    printf("----State Table-----\n");
+    st = fopen(STATE_TABLE, "rb");
+    while(reading != 0) {
+        reading = fread(&st_buff, sizeof(int), 1, st);
+        if(reading != 0) {
+            printf("%d\n", st_buff);
+        }
+    }
+
+    //overview table
+    printf("\n---fs system table---\n");
+    reading = 1;
+    fs = fopen(FS_TABLE, "r");
+    reading = fread(fs_buff, sizeof(char), 1024, fs);
+    printf("Bytes present: %d\n", reading);
+    printf("payload: %s\n", fs_buff); 
+
+    //raw queue 
+    printf("\n---raw work queue---\n");
+    reading = 1;
+    rq = fopen(TRF_QUEUE, "rb");
+    while(reading != 0) {
+        reading = fread(&rq_buff, sizeof(int), 1, rq);
+        if(reading != 0) {
+            printf("%d\n", rq_buff);
+        }
+    }
+
+    printf("\n\n---------------\n");
+    return 0;
 }

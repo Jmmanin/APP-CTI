@@ -24,7 +24,7 @@ void Q_peek(char *output_buff);
 void Q_addData(char *data);
 
 //pulls the next value from the queue
-void Q_removeData(char *output_buff);
+int Q_removeData(char *output_buff);
 
 //clears the Q
 void Q_reset();

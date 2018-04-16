@@ -4,6 +4,8 @@
 
 void DPS_socketInit();
 
+int DPS_getClient();
+
 //does a communication with the client to establish what type of comm is occurring.
 int DPS_getClientState();
 

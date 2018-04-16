@@ -19,8 +19,8 @@ int q_sim(char *pkt_buff);
 int file_sim(int stream_id, char *outBuff);
 
 int main() {
-    int q_state, f_state, trgt_stream;
-    int dps_servmode = 0;
+    int q_state, f_state, trgt_stream, client_up, release_state;
+    int dps_servmode = -1;
     char pkt_buff[2];
     char proc_buff[MAX_PRDATBUFF_SIZE];
     prdat_header_t stream_header;
@@ -29,20 +29,27 @@ int main() {
     
     while(1) {
         switch(dps_servmode) {
+            case -1:
+                printf("Waiting on Client...\n");
+                client_up = DPS_getClient();
+                if(client_up) {
+                    dps_servmode = 0;
+                }
+                continue;
             case 0:
-                printf("Waiting on client...\n");
+                printf("Waiting on context...\n");
                 dps_servmode = DPS_getClientState();
                 printf("Client found, asking mode: %d\n", dps_servmode);
                 break;
             case 1:
                 printf("Asking client for stream id...");
                 DPS_readStreamAddr(&trgt_stream);
-                printf("given %d\n", trgt_stream);
+                printf("given id: %d\n", trgt_stream);
                 f_state = file_sim(trgt_stream, proc_buff);
                 if(!f_state) {
                     stream_header.payload = 0;
                 } else {
-                    stream_header.payload = 32;
+                    stream_header.payload = 18;
                 }
 
                 printf("Replaying with payload...");
@@ -63,9 +70,13 @@ int main() {
                 continue;
         }
         printf("checking for mode release...");
-        if (DPS_check_release()) {
+        release_state = DPS_check_release();
+        if (release_state == 1) {
             printf("released.\n");
             dps_servmode = 0;
+        } else if (release_state == 2) {
+            printf("released and closed.\n");
+            dps_servmode = -1;
             DPS_close_port();
         }
         printf("\n");
@@ -86,7 +97,13 @@ int q_sim(char *pkt_buff) {
 }
 
 int file_sim(int stream_id, char *outBuff) {
-    if(stream_id < 2 || stream_id > 5) {
+    char *outsource = "TestPayloadOutHere";
+    int i;
+    if(stream_id > 2 && stream_id < 5) {
+        for(i = 0; i < 18; i++) {
+            outBuff[i] = outsource[i];
+        }
         return 1;
     }
+    return 0;
 }

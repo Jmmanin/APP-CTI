@@ -11,7 +11,6 @@ static float X_OFFSET = 0;
 static float Y_OFFSET = 0;
 static float Z_OFFSET = 0;
 
-static int32_t start_buf = 0;
 static FILE *f_ptr = NULL;
 
 int COMM_closedown()
@@ -30,6 +29,10 @@ int COMM_monitor()
 
 int COMM_bridgeInit()
 {
+    system("clear"); //clears screen
+    printf("***RIG CALIBRATION***\nPlace hand on flat surface and press any key to continue.\n");
+    getchar();   
+    
     serial_packet_t temp;
     int packet_count = 0;
     float x_sum = 0, y_sum = 0, z_sum = 0;
@@ -42,6 +45,7 @@ int COMM_bridgeInit()
     {
         while(packet_count<5)
         {
+            printf("CALIBRATING\n");
             temp = COMM_getNextPacket();
 
             x_sum += temp.serial_orientation[0];
@@ -50,10 +54,15 @@ int COMM_bridgeInit()
 
             packet_count++;
         }
+        
+        printf("CALIBRATION COMPLETE\n");
+        system("clear");
 
         X_OFFSET = x_sum/packet_count;
         Y_OFFSET = y_sum/packet_count;
         Z_OFFSET = z_sum/packet_count;
+        
+        printf("OFFSETS: %f, %f, %f\n", X_OFFSET, Y_OFFSET, Z_OFFSET);
 
         return(0);
     }
@@ -62,6 +71,7 @@ int COMM_bridgeInit()
 serial_packet_t COMM_getNextPacket()
 {
     serial_packet_t packet_to_recv;
+    int32_t start_buf = 0;
     uint8_t byte_buf = 0;
     uint32_t temp = 0;
 
@@ -77,7 +87,7 @@ serial_packet_t COMM_getNextPacket()
 
     packet_to_recv.serial_orientation[0] -= X_OFFSET;
     packet_to_recv.serial_orientation[1] -= Y_OFFSET;
-    packet_to_recv.serial_orientation[2] -= Z_OFFSET;		
+    packet_to_recv.serial_orientation[2] -= Z_OFFSET;
 
     return(packet_to_recv);
 }

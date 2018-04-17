@@ -320,7 +320,7 @@ int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffe
 
     target_base_meta = FS_get_trfb(stream_id);
     if(strcmp(target_base_meta.readout_ptr, "") == 0) {
-        printf("** reading nothing from stream %d\n", stream_id);
+        //printf("** reading nothing from stream %d\n", stream_id);
         return 0;  //there is nothing in the stream to work on. 
     }
 
@@ -329,7 +329,7 @@ int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffe
     //printf("readout_ptr = '%s'", target_base_meta.readout_ptr);
     FILE *target_trf = fopen(target_base_meta.readout_ptr, "rb");
     int ro = fread(meta_buffer, sizeof(trf_header_t), 1, target_trf);
-    printf("**reading from : '%s' : %d bytes, read %d\n", target_base_meta.readout_ptr, meta_buffer->payload, ro);
+    //printf("**reading from : '%s' : %d bytes, read %d\n", target_base_meta.readout_ptr, meta_buffer->payload, ro);
     fread(chunk_buff, sizeof(char), meta_buffer->payload, target_trf);
     fclose(target_trf);
     /*for(i = 0; i < 15; i++) {

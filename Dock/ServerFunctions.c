@@ -8,8 +8,8 @@
 
 int validate_cmd(char cmd) {
     int i;
-    int num_cmds = 3;
-    char val_char[] = {'k', 'm', 'v'};
+    int num_cmds = 4;   //update here
+    char val_char[] = {'k', 'm', 'v', 's'}; //update here
 
     for(i = 0; i < num_cmds; i++) {
         if(cmd == val_char[i]) {
@@ -22,10 +22,11 @@ int validate_cmd(char cmd) {
 
 void print_cmdls() {
     
-    printf("\nTable of Server Control Commands:\n");
+    printf("\nTable of Server Control Commands:\n");  //update here
     printf("- 'k': (kill) close down server operations\n");
     printf("- 'm': (monitor) display current state of server\n");
-    printf("- 'v': (view) view the contents of the file system state files.");
+    printf("- 'v': (view) view the contents of the file system state files.\n");
+    printf("- 's': (snyc) calibrate and sync a new rig device over the comm bridge.\n");
     
 }
 void T_data_transform(char *work_in, char *work_out, int num_pkts) {

@@ -23,7 +23,7 @@ typedef struct live_state {
     int sample_rate;
 } livestream_state_t; 
 
-    //used to communicate between work threads
+//used to communicate between work threads
 typedef struct thread_state {
     int targetted_stream;  //w->m
     int internal_stat;     //w->m
@@ -33,8 +33,11 @@ typedef struct thread_state {
     int read;              //m<->w associated to msg
 } thread_state_t;
 
+//instance declarations
 thread_state_t comm_block[NUM_WORKERS];
 livestream_state_t livestream_state;
+pthread_mutex_t io_lock;
+
 
 //Top Level Function Prototypes
 void *dock_manager();
@@ -48,10 +51,11 @@ void S_flush_CommBlock(thread_state_t *target);
 void S_View_Monitior();
 void S_View_fileSystem();
 void S_Send_Shutdown();
+void s_Release_Screen();
 
 
 int main(int argc, char *argv[]) {
-    //Universal Management variables, buffers
+    //System Declarations
     pthread_t thread_collection[NUM_WORKERS];
     char command;
     int run = 1;
@@ -59,12 +63,13 @@ int main(int argc, char *argv[]) {
     clock_t start_ti, end_ti;
     double wait_ti = 0;
 
-    //main thread variables
+    //System Initializations
     S_Init_CommBlock();
     FS_Init();
+    pthread_mutex_lock(&io_lock);
     livestream_state.go_live = 0;
 
-    //thread set up
+    //Thread Initializations
     if(pthread_create(&thread_collection[0], NULL, dock_manager, NULL)) {
         printf("Failed to create dock manager\n");
     }
@@ -96,6 +101,9 @@ int main(int argc, char *argv[]) {
                 break;
             case 'v':
                 S_View_fileSystem();
+                break;
+            case 's':
+                s_Release_Screen();
                 break;
         }
         
@@ -172,7 +180,10 @@ void *dock_manager() {
 
     while(DOCK_W.shutdown == 0) {
         if(rig_active) {
+            pthread_mutex_lock(&io_lock);
             rig_active = COMM_bridgeInit();
+            pthread_mutex_unlock(&io_lock);
+            
             if(!rig_active && new_stream_flag) {
                 DOCK_W.targetted_stream = create_new_rawstream(samp_rate);
                 livestream_state.stream_id = DOCK_W.targetted_stream;
@@ -441,4 +452,19 @@ void S_View_fileSystem() {
     }
 
     printf("\n\n---------------\n");
+}
+
+void s_Release_Screen() {
+    clock_t start_ti, end_ti;
+    double wait_ti = 0;
+
+    printf("Giving dock time to calibrate new rig: \n");
+    pthread_mutex_unlock(&io_lock);
+    start_ti = clock();
+    while(wait_ti < 1) {
+        end_ti = clock();
+        wait_ti = (double) (end_ti - start_ti) / CLOCKS_PER_SEC;
+    }
+    pthread_mutex_lock(&io_lock);
+    printf("Dock's operations are completed, Manager resuming screen control.\n");
 }

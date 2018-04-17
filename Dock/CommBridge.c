@@ -30,7 +30,7 @@ int COMM_monitor()
 int COMM_bridgeInit()
 {
     system("clear"); //clears screen
-    printf("***RIG CALIBRATION***\nPlace hand on flat surface and press any key to continue.\n");
+    printf("***RIG CALIBRATION***\nPlace hand on flat surface and press ENTER to continue.\n");
     getchar();   
     
     serial_packet_t temp;

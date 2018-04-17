@@ -22,9 +22,9 @@ const float NINETY_DEG_R_1 = 57500;
 const float STRAIGHT_R_2 = 15000; //Middle
 const float NINETY_DEG_R_2 = 40800;
 const float STRAIGHT_R_3 = 14450; //Ring
-const float NINETY_DEG_R_3 = 37200;
+const float NINETY_DEG_R_3 = 43750;
 const float STRAIGHT_R_4 = 17150; //Little
-const float NINETY_DEG_R_4 = 43400;
+const float NINETY_DEG_R_4 = 49500;
 
 //Force Resistor Constants
 const float R_DIV_PRESSURE = 3300;

@@ -127,9 +127,12 @@ int main(int argc, char *argv[]) {
     }
 
     //Close down protocols
+    pthread_mutex_unlock(&io_lock);
     for(i = 0; i < NUM_WORKERS; i++) {
         printf("Waiting on worker %d to shut down....", i);
-        pthread_join(thread_collection[i], NULL);
+        if(i != 2) {
+            pthread_join(thread_collection[i], NULL);
+        }
         printf(" thread closed.\n");
     }
     printf("\nServer Closed Down. Bye!\n");
@@ -162,8 +165,9 @@ void *input_manager() {
 
 void *dock_manager() {
     int i;
-    int max_pkts, miss_pkts, curr_pkts;
-    int samp_rate = 1;
+    int miss_pkts = 0;
+    int curr_pkts = 0;
+    int samp_rate = 1;   /*CHANGE SAMPLE RATE HERE*/
     int rig_active = 1;  //Active low
     int new_stream_flag = 1;
     
@@ -181,6 +185,10 @@ void *dock_manager() {
     while(DOCK_W.shutdown == 0) {
         if(rig_active) {
             pthread_mutex_lock(&io_lock);
+            if(DOCK_W.shutdown == 1) { //server may have released lock in attempt to shutdown
+                DOCK_W.exit_code == 1;
+                continue;              //jump out of loop and preform proper shutdown
+            }
             rig_active = COMM_bridgeInit();
             pthread_mutex_unlock(&io_lock);
             
@@ -204,8 +212,8 @@ void *dock_manager() {
                 }
                 curr_pkts += 1;
 
-               if(curr_pkts >= (MAX_TRFBUFF_SIZE / INP_PKT_SIZE)) {
-                    store_raw_chunk(DOCK_W.targetted_stream, holdBuff, (MAX_TRFBUFF_SIZE / INP_PKT_SIZE));
+               if(curr_pkts >= (MAX_TRF_SEGMENT * samp_rate)) {
+                    store_raw_chunk(DOCK_W.targetted_stream, holdBuff, (MAX_TRF_SEGMENT / INP_PKT_SIZE));
                     curr_pkts = 0;
                 }
                 miss_pkts = 0;
@@ -215,7 +223,7 @@ void *dock_manager() {
             }
         }
 
-        if(miss_pkts > DOCK_MISS_TRIGGER) {
+        if(miss_pkts > (DOCK_MISS_TRIGGER * samp_rate)) {
             if(curr_pkts > 0) {
                 store_raw_chunk(DOCK_W.targetted_stream, holdBuff, curr_pkts);
             }
@@ -240,8 +248,8 @@ void *dock_manager() {
             store_raw_chunk(DOCK_W.targetted_stream, holdBuff, curr_pkts);
         }
         cap_rawstream(DOCK_W.targetted_stream);
+        COMM_closedown();
     }
-    COMM_closedown();
     free(holdBuff);
     DOCK_W.exit_code = 1;
 }

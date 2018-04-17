@@ -253,7 +253,7 @@ int cap_rawstream(int stream_id) {
 
     trfb_header_t stream_info = FS_get_trfb(stream_id);
     stream_info.build_state = COMPLETE;
-    FS_write_rawstream_base_file(stream_info);
+    //FS_write_rawstream_base_file(stream_info);
     return 0;
 
 }

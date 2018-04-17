@@ -17,13 +17,13 @@ int DPSC_validate_cmd_type(char op);
 int DPS_close_port();
 
 //module globals. (Means we can only hold 1 connection but thats fine)
-int initd = 0;
+int inited = 0;
 int sockfd = 0, connfd = 0;
 struct sockaddr_in serv_addr;
 
 //sets up the server side connection
 void DPS_socketInit() {
-    if(initd == 1) {
+    if(inited == 1) {
         return;
     }
     //initialize the socket struct

@@ -6,6 +6,7 @@
 //inclusions
 #include "FileAPI.h"
 #include "UniversalDefines.h"
+#include "CommBridge.h"
 
 
 //************************
@@ -21,6 +22,7 @@ void print_cmdls();
 //  Dock Worker Functions
 //************************
 int D_add_packet(char *hold_buff, char *new_pkt, int num_pkts);
+void Dock_convert2charArray(serial_packet_t *in_pkt, char *out_arr);
 //************************
 //  Transform Worker Functions
 //************************

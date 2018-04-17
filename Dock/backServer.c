@@ -154,7 +154,7 @@ void *input_manager() {
 
 void *dock_manager() {
     int i;
-    int max_pkts, miss_pkts;
+    int max_pkts, miss_pkts, curr_pkts;
     int samp_rate = 1;
     int rig_active = 1;  //Active low
     int new_stream_flag = 1;
@@ -162,7 +162,7 @@ void *dock_manager() {
     clock_t start_ti, end_ti, wait_ti;
 
     char *holdBuff;
-    char curr_pkt_ser;
+    char curr_pkt_ser[INP_PKT_SIZE];
     serial_packet_t curr_pkt;
 
     //printf("data pkt struct size: %d", sizeof(serial_packet_t));
@@ -267,7 +267,7 @@ void *transform_manager() {
 void *dps_manager() {
     int q_state, f_state, trgt_stream, client_up, release_state;
     int dps_servmode = -1;
-    char pkt_buff[2];
+    char pkt_buff[INP_PKT_SIZE];
     char proc_buff[MAX_PRDATBUFF_SIZE];
     prdat_header_t stream_header;
     
@@ -305,20 +305,17 @@ void *dps_manager() {
                 //printf("Asking client for stream id...");
                 DPS_readStreamAddr(&trgt_stream);
                 //printf("given id: %d\n", trgt_stream);
-                f_state = file_sim(trgt_stream, proc_buff);
-                if(!f_state) {
+                f_state = read_processed_stream(trgt_stream, &stream_header, proc_buff, MAX_PRDATBUFF_SIZE);
+                if(f_state) {
                     stream_header.payload = 0;
-                } else {
-                    stream_header.payload = 18;
                 }
-
                 //printf("Replaying with payload...");
                 DPS_returnStreamPayload(stream_header.payload, proc_buff);
                 //printf("done.\n");
                 break;
                     //get streaming packets
             case 2:
-                q_state = Q_removeData();
+                q_state = Q_removeData(pkt_buff);
                 //printf("Got packet from queue. Status: %d, pkt: '%s'\n", q_state, pkt_buff);
                 if(q_state == 1) {
                     //printf("Transmitting paket...");
@@ -444,5 +441,4 @@ void S_View_fileSystem() {
     }
 
     printf("\n\n---------------\n");
-    return 0;
 }

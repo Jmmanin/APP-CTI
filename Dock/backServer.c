@@ -37,6 +37,7 @@ typedef struct thread_state {
 thread_state_t comm_block[NUM_WORKERS];
 livestream_state_t livestream_state;
 pthread_mutex_t io_lock;
+pthread_mutex_t q_lock;
 
 
 //Top Level Function Prototypes
@@ -167,18 +168,21 @@ void *dock_manager() {
     int i;
     int miss_pkts = 0;
     int curr_pkts = 0;
-    int samp_rate = 1;   /*CHANGE SAMPLE RATE HERE*/
+    int samp_rate = 25;   /*CHANGE SAMPLE RATE HERE*/
     int rig_active = 1;  //Active low
     int new_stream_flag = 1;
     
-    clock_t start_ti, end_ti, wait_ti;
+    clock_t start_ti, end_ti;
+    double wait_ti;
 
     char *holdBuff;
     char curr_pkt_ser[INP_PKT_SIZE];
     serial_packet_t curr_pkt;
 
     //printf("data pkt struct size: %d", sizeof(serial_packet_t));
+    pthread_mutex_lock(&q_lock);
     Q_Init(INP_PKT_SIZE);  // creating instance of live transfer q
+    pthread_mutex_unlock(&q_lock);
     curr_pkts = 0;
     holdBuff = (char *) malloc(MAX_TRFBUFF_SIZE);
 
@@ -199,12 +203,18 @@ void *dock_manager() {
                 new_stream_flag = 0;
             }
         } else {
-            if(!COMM_monitor()) {
+            if(COMM_monitor()!=0) {
+                //printf("Next pkt available\n");
                 curr_pkt = COMM_getNextPacket();
+                start_ti = clock();
                 Dock_convert2charArray(&curr_pkt, curr_pkt_ser);
-                
+                end_ti = clock();
+                wait_ti = (double) (end_ti - start_ti) / CLOCKS_PER_SEC;
+                printf("Next Packet Available. read in over: %lf s\n", wait_ti);
                 if(livestream_state.go_live == 1) {
+                    pthread_mutex_lock(&q_lock);
                     Q_addData(curr_pkt_ser);
+                    pthread_mutex_unlock(&q_lock);
                     printf("Adding pkt to Q, Q size: %d\n", Q_size());
                 }
                 
@@ -214,12 +224,13 @@ void *dock_manager() {
                 curr_pkts += 1;
 
                if(curr_pkts >= (MAX_TRF_SEGMENT * samp_rate)) {
-                    store_raw_chunk(DOCK_W.targetted_stream, holdBuff, (MAX_TRF_SEGMENT / INP_PKT_SIZE));
+                    store_raw_chunk(DOCK_W.targetted_stream, holdBuff, curr_pkts);
                     curr_pkts = 0;
                 }
                 miss_pkts = 0;
 
             } else {
+                //printf("Missed packet\n");
                 miss_pkts += 1;
             }
         }
@@ -236,8 +247,9 @@ void *dock_manager() {
             new_stream_flag = 1;
         }
 
+        wait_ti = 0;
         start_ti = clock();   //polls for packets at > 25Hz
-        while(wait_ti < 0.03) {
+        while(wait_ti < 0.001) {
             end_ti = clock();
             wait_ti = (double) (end_ti - start_ti) / CLOCKS_PER_SEC;
         }
@@ -292,7 +304,9 @@ void *dps_manager() {
     prdat_header_t stream_header;
     
     DPS_socketInit();
+    pthread_mutex_lock(&q_lock);
     Q_Init(INP_PKT_SIZE);
+    pthread_mutex_unlock(&q_lock);
     
     while(1) {
             //check for shutdown command.
@@ -316,7 +330,9 @@ void *dps_manager() {
                 dps_servmode = DPS_getClientState();
                 //printf("Client found, asking mode: %d\n", dps_servmode);
                 if(dps_servmode == 2) {
+                    pthread_mutex_lock(&q_lock);
                     Q_reset();
+                    pthread_mutex_unlock(&q_lock);
                     livestream_state.go_live = 1;
                 }
                 break;
@@ -335,8 +351,10 @@ void *dps_manager() {
                 break;
                     //get streaming packets
             case 2:
+                pthread_mutex_lock(&q_lock);
                 q_state = Q_removeData(pkt_buff);
-                printf("***Got packet from queue. Status: %d, pkt[0]: '%x'\n", q_state, pkt_buff[0]);
+                pthread_mutex_unlock(&q_lock);
+                //printf("***Got packet from queue. Status: %d, pkt[0]: '%x'\n", q_state, pkt_buff[0]);
                 if(q_state == 1) {
                     //printf("Transmitting paket...");
                     DPS_sendPacket(pkt_buff);

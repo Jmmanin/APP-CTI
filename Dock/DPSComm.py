@@ -63,7 +63,7 @@ class DPS_interface():
 
         in_pkt = bytearray()
 
-        self.sock.settimeout(0.5)  # need a timeout in case packets are streaming in
+        self.sock.settimeout(0.01)  # need a timeout in case packets are streaming in
         try:   
             in_pkt = self.sock.recv(self.PACKET_SIZE)
         except socket.timeout:

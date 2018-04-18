@@ -301,7 +301,9 @@ int throughput_test() {
 	store_processed_chunk(stream1, readoutBuff, readoutHeader.payload);
 	checkout_raw_chunk(stream1, readoutBuff, &readoutHeader);
 	store_processed_chunk(stream1, readoutBuff, readoutHeader.payload);
-
+	checkout_raw_chunk(stream1, readoutBuff, &readoutHeader);
+	store_processed_chunk(stream1, readoutBuff, readoutHeader.payload);
+    
 	cap_rawstream(stream1);
 	//cap_rawstream(stream2);
 	cap_processed_file(stream1, 0);
@@ -331,12 +333,12 @@ int complete_main_unit_test() {
 int main() {
 
 	//ADD NEW TEST BATTERY FUNCTIONS
-	int(*test_battery[])() = {/*filestream_create_test,
-							  store_raw_chunk_test,
-							  store_raw_chunk_test,
-							  store_raw_chunk_test,
-							  read_two_chunk_test*/
-							  throughput_test,
+	int(*test_battery[])() = {//filestream_create_test,
+							  //store_raw_chunk_test,
+							  //store_raw_chunk_test,
+							  //store_raw_chunk_test,
+							  //read_two_chunk_test
+							  throughput_test
 							  /*test_cap_rawstream,*/
 							  /*timing_test,*/
 							  /*store_procbuff_test*/};

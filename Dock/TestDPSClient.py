@@ -13,7 +13,7 @@ def main():
     dps.select_mode('l')
 
     start_t = time.time()
-    while (time.time() - start_t) < 15:
+    while (time.time() - start_t) < 5:
         (pkt, resp) = dps.get_live_packet()
         if resp != 1:
             print('Got packet! ')

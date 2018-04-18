@@ -38,6 +38,7 @@ thread_state_t comm_block[NUM_WORKERS];
 livestream_state_t livestream_state;
 pthread_mutex_t io_lock;
 pthread_mutex_t q_lock;
+pthread_mutex_t fq_lock;
 
 
 //Top Level Function Prototypes
@@ -210,12 +211,12 @@ void *dock_manager() {
                 Dock_convert2charArray(&curr_pkt, curr_pkt_ser);
                 end_ti = clock();
                 wait_ti = (double) (end_ti - start_ti) / CLOCKS_PER_SEC;
-                printf("Next Packet Available. read in over: %lf s\n", wait_ti);
+                //printf("Next Packet Available. read in over: %lf s\n", wait_ti);
                 if(livestream_state.go_live == 1) {
                     pthread_mutex_lock(&q_lock);
                     Q_addData(curr_pkt_ser);
                     pthread_mutex_unlock(&q_lock);
-                    printf("Adding pkt to Q, Q size: %d\n", Q_size());
+                    //printf("Adding pkt to Q, Q size: %d\n", Q_size());
                 }
                 
                 for(i = 0; i < INP_PKT_SIZE; i++) {
@@ -224,7 +225,9 @@ void *dock_manager() {
                 curr_pkts += 1;
 
                if(curr_pkts >= (MAX_TRF_SEGMENT * samp_rate)) {
+                    pthread_mutex_lock(&fq_lock);
                     store_raw_chunk(DOCK_W.targetted_stream, holdBuff, curr_pkts);
+                    pthread_mutex_unlock(&fq_lock);
                     curr_pkts = 0;
                 }
                 miss_pkts = 0;
@@ -236,11 +239,13 @@ void *dock_manager() {
         }
 
         if(miss_pkts > (DOCK_MISS_TRIGGER * samp_rate)) {
+            pthread_mutex_lock(&fq_lock);
             if(curr_pkts > 0) {
                 store_raw_chunk(DOCK_W.targetted_stream, holdBuff, curr_pkts);
             }
             cap_rawstream(DOCK_W.targetted_stream);
-
+            pthread_mutex_unlock(&fq_lock);
+            
             DOCK_W.targetted_stream = 0;
             curr_pkts = 0;
             rig_active = 1;
@@ -277,7 +282,9 @@ void *transform_manager() {
     int i;
 
     while(TRNS_W.shutdown == 0) {
+        pthread_mutex_lock(&fq_lock);
         stream_id = checkout_raw_chunk(stream_id, workload_raw, &work_meta);
+        pthread_mutex_unlock(&fq_lock);
         /*if(stream_id != 0) {
             printf("\nChecking out chunk: stream: %d\n", stream_id);
             printf("time: %lf, payload, %s", work_meta.time_slice, workload_raw);
@@ -478,6 +485,9 @@ void S_View_fileSystem() {
         }
     }
 
+    fclose(st);
+    fclose(fs);
+    fclose(rq);
     printf("\n\n---------------\n");
 }
 

@@ -7,7 +7,7 @@
 #define INP_PKT_SIZE 52            /*number of bytes/packet incoming from the rig*/
 #define TRNS_PKT_SIZE 52           /*number of bytes/packet after being run through transform function*/
 #define MAX_STREAM_TIME  300       /*length of time in seconds a single stream will be constrained to*/
-#define MAX_TRF_SEGMENT 15         /*length of time the INP buffer will run for*/
+#define MAX_TRF_SEGMENT 60         /*length of time the INP buffer will run for*/
 #define MAX_SAMPLE_RATE 60         /*60hz max sample rate*/
 #define STD_TRANSP_TIME 10         /*number of seconds worth of data buffered by dock before shipping off to file system*/
 #define DOCK_MISS_TRIGGER 100        /*total time of loop misses before we declare a rig offline*/

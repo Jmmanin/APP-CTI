@@ -157,9 +157,9 @@ int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_numPkts) {
         fclose(trailing_trf); 
     }  
 
-    if(stream_info.run_time >= MAX_STREAM_TIME) {
+    /*if(stream_info.run_time >= MAX_STREAM_TIME) {
         stream_info.build_state = COMPLETE;
-    }
+    }*/
 
     //Writes back out to files
         //BASE FILE
@@ -541,6 +541,7 @@ int FS_register_stream(int stream_id) {
     //TODO: determine who file will be organized and seeked. 
     //looks for a file in the folder BOOLEAN
 int FS_check_file(char* filename) {
+    //printf("opening: '%s'", filename);
     FILE *target = fopen(filename, "rb");
 
     if(target != NULL) {
@@ -626,7 +627,9 @@ void FS_View_StateFiles() {
             printf("%d\n", rq_buff);
         }
     }
-
+    fclose(st);
+    fclose(fs);
+    fclose(rq);
     printf("\n\nAll files printed.\n");
 }
 

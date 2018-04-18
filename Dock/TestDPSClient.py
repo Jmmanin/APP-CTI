@@ -17,7 +17,7 @@ def background_thread():
     dps.select_mode('l')
 
     while True:
-        socketio.sleep(1)
+        socketio.sleep(0.04)
         (pkt, resp) = dps.get_live_packet()
         if resp != 1:
             (fuck_list, json) = dps.packet_reconstruct(pkt)

@@ -215,6 +215,11 @@ void *dock_manager() {
                 //printf("Next Packet Available. read in over: %lf s\n", wait_ti);
                 if(livestream_state.go_live == 1) {
                     pthread_mutex_lock(&q_lock);
+                    int r;
+                    for(r = 0; r < 52; r++) {
+                        printf("%x ", curr_pkt_ser[r]);
+                    }
+                    printf("\n");
                     Q_addData(curr_pkt_ser);
                     pthread_mutex_unlock(&q_lock);
                     //printf("Adding pkt to Q, Q size: %d\n", Q_size());
@@ -366,6 +371,11 @@ void *dps_manager() {
                 pthread_mutex_unlock(&q_lock);
                 //printf("***Got packet from queue. Status: %d, pkt[0]: '%x'\n", q_state, pkt_buff[0]);
                 if(q_state == 1) {
+                    /*int r;
+                    for(r = 0; r < 52; r++) {
+                        printf("%x ", pkt_buff[r]);
+                    }
+                    printf("\n");*/
                     //printf("Transmitting paket...");
                     DPS_sendPacket(pkt_buff);
                     //printf("done.\n");

@@ -36,23 +36,24 @@ class WearFunction():
     def get_current_ttl(self):
         return self.ttl
 
-    def calc_next_wear(self, w):
+    def calc_next_wear(self, w, Hz=1):
         
-        # steps for if resting during timestep
-        if w < 1 :
+        # steps for if active during timestep
+        if w > 1 :
+            w_new = w / Hz
             self.active = 1
-            self.w_c += w
+            self.w_c += w_new
             self.ttl = (self.Max_seconds - self.w_c) / w
             if self.ttl < 0 :
                 self.ttl = 0
 
-        # steps for it active during timestep
+        # steps for if resting during timestep
         else:
             if self.active == 1:
                 self.t_rstart = self.curr_tstep
                 self.active = 0
             self.w_c *= 1 - ((self.curr_tstep + 1 - self.t_rstart) / (self.sample_rate * self.T_recov))
-            # m^ this zeros out w_c at T_recover so the garbage generated after is ok 
+            # ^ w_c zeros at T_recover so the junk generated after is ok 
             self.ttl = self.Max_seconds - self.w_c
 
         store_tuple = (self.w_c, self.ttl, (self.curr_tstep/self.sample_rate), self.active)

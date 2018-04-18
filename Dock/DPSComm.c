@@ -57,7 +57,7 @@ int DPS_getClientState() {
 
     //connfd = accept(sockfd, (struct sockaddr*) NULL, NULL);
     read(connfd, &operation_type, sizeof(char));
-    printf("client raw ask: %d\n", operation_type);
+    //printf("client raw ask: %d\n", operation_type);
     if(!DPSC_validate_cmd_type(operation_type)) {
         ack[0] = 'n';
         operation_type = 0;
@@ -120,7 +120,7 @@ int DPS_sendPacket(char *pkt) {
 int DPS_check_release() {
     char release_confirm;
     read(connfd, &release_confirm, sizeof(char));
-    printf("release confirm %c, %x\n", release_confirm, release_confirm);
+    //printf("release confirm %c, %x\n", release_confirm, release_confirm);
     if(release_confirm == 'r') {
         return 1;
     }

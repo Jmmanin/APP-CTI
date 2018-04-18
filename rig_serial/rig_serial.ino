@@ -162,5 +162,5 @@ void loop()
   
   Serial.write((byte*)&packet_to_send, sizeof(serial_packet)); //sends packet
 
-  delay(40); //~25hz sampling rate
+  delay(30); //~33.3hz sampling rate
 }

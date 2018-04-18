@@ -163,7 +163,7 @@ void *input_manager() {
     INP_W.exit_code = 1;
     INP_W.msg[0] = command;
     INP_W.internal_stat = 0;
-    return;
+    return NULL;
 }
 
 void *dock_manager() {
@@ -271,7 +271,7 @@ void *dock_manager() {
     }
     free(holdBuff);
     DOCK_W.exit_code = 1;
-    return;
+    return NULL;
 }
 
 void *transform_manager() {
@@ -303,7 +303,7 @@ void *transform_manager() {
         }
     }
     TRNS_W.exit_code = 1;
-    return;
+    return NULL;
 }
 
 void *dps_manager() {
@@ -391,7 +391,7 @@ void *dps_manager() {
         //printf("\n");
     }
     DPS_W.exit_code = 1;
-    return;
+    return NULL;
 }
 
 //*************************

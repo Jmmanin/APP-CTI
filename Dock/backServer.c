@@ -3,7 +3,7 @@
 //  internal transformation, and outgoing data buffering
 
 //Compile with: gcc backServer.c FileAPI.c CommBridge.c DPSInterface.c PacketQueue.c ServerFunctions.c -o <exe_name> -lpthread
-//execute with ./<exe_name> 
+//execute with ./<exe_name>
 
 #include <pthread.h>
 #include <stdio.h>
@@ -21,7 +21,7 @@ typedef struct live_state {
     int go_live;
     int stream_id;
     int sample_rate;
-} livestream_state_t; 
+} livestream_state_t;
 
 //used to communicate between work threads
 typedef struct thread_state {
@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
                 s_Release_Screen();
                 break;
         }
-        
+
         if(INP_W.exit_code == 1) {
             S_flush_CommBlock(&INP_W);
             if(command != 'k') {
@@ -144,15 +144,15 @@ int main(int argc, char *argv[]) {
 //       Managers
 //************************
 void *input_manager() {
-    char command, clr; 
+    char command, clr;
     int val = 0;
-    
+
     INP_W.internal_stat = 1;
 
     while(!val) {
         printf("\nServer is running. Enter command to control operation: ");
         command = getchar(); //blocks until we get a char
-        
+
         val = validate_cmd(command);
         if(!val) {
             print_cmdls();
@@ -163,7 +163,7 @@ void *input_manager() {
     INP_W.exit_code = 1;
     INP_W.msg[0] = command;
     INP_W.internal_stat = 0;
-    return NULL;
+    //return NULL;
 }
 
 void *dock_manager() {
@@ -173,7 +173,7 @@ void *dock_manager() {
     int samp_rate = 25;   /*CHANGE SAMPLE RATE HERE*/
     int rig_active = 1;  //Active low
     int new_stream_flag = 1;
-    
+
     clock_t start_ti, end_ti;
     double wait_ti;
 
@@ -197,7 +197,7 @@ void *dock_manager() {
             }
             rig_active = COMM_bridgeInit();
             pthread_mutex_unlock(&io_lock);
-            
+
             if(!rig_active && new_stream_flag) {
                 DOCK_W.targetted_stream = create_new_rawstream(samp_rate);
                 livestream_state.stream_id = DOCK_W.targetted_stream;
@@ -219,7 +219,7 @@ void *dock_manager() {
                     pthread_mutex_unlock(&q_lock);
                     //printf("Adding pkt to Q, Q size: %d\n", Q_size());
                 }
-                
+
                 for(i = 0; i < INP_PKT_SIZE; i++) {
                     holdBuff[(curr_pkts*INP_PKT_SIZE) + i] = curr_pkt_ser[i];
                 }
@@ -246,7 +246,7 @@ void *dock_manager() {
             }
             cap_rawstream(DOCK_W.targetted_stream);
             pthread_mutex_unlock(&fq_lock);
-            
+
             DOCK_W.targetted_stream = 0;
             curr_pkts = 0;
             rig_active = 1;
@@ -271,7 +271,7 @@ void *dock_manager() {
     }
     free(holdBuff);
     DOCK_W.exit_code = 1;
-    return NULL;
+    //return NULL;
 }
 
 void *transform_manager() {
@@ -295,7 +295,7 @@ void *transform_manager() {
             printf("%c", workload_raw[i]);
         }*/
         TRNS_W.targetted_stream = stream_id;
-        
+
         if(stream_id != 0) {
             output_payload = (work_meta.payload / INP_PKT_SIZE) * TRNS_PKT_SIZE;
             T_data_transform(workload_raw, workload_proc, (work_meta.payload/INP_PKT_SIZE));
@@ -303,7 +303,7 @@ void *transform_manager() {
         }
     }
     TRNS_W.exit_code = 1;
-    return NULL;
+    //return NULL;
 }
 
 void *dps_manager() {
@@ -312,12 +312,12 @@ void *dps_manager() {
     char pkt_buff[INP_PKT_SIZE];
     char proc_buff[MAX_PRDATBUFF_SIZE];
     prdat_header_t stream_header;
-    
+
     DPS_socketInit();
     pthread_mutex_lock(&q_lock);
     Q_Init(INP_PKT_SIZE);
     pthread_mutex_unlock(&q_lock);
-    
+
     while(1) {
             //check for shutdown command.
         if(DPS_W.shutdown == 1) {
@@ -334,7 +334,7 @@ void *dps_manager() {
                     dps_servmode = 0;
                 }
                 continue;
-                    //getting the transfer mode context 
+                    //getting the transfer mode context
             case 0:
                 //printf("Waiting on context...\n");
                 dps_servmode = DPS_getClientState();
@@ -391,7 +391,7 @@ void *dps_manager() {
         //printf("\n");
     }
     DPS_W.exit_code = 1;
-    return NULL;
+    //return NULL;
 }
 
 //*************************
@@ -437,7 +437,7 @@ void S_flush_CommBlock(thread_state_t *trgt) {
     trgt->shutdown = 0;
     trgt->exit_code = 0;
     trgt->read = 0;
-    
+
     for(i = 0; i < MSG_SIZE; i++) {
         trgt->msg[i] = '\0';
     }
@@ -458,7 +458,7 @@ void S_View_fileSystem() {
     char fs_buff[1024];
     int rq_buff;
     int reading = 1;
-    
+
     //state table
     printf("Current File System State\n");
     printf("----State Table-----\n");
@@ -476,9 +476,9 @@ void S_View_fileSystem() {
     fs = fopen(FS_TABLE, "r");
     reading = fread(fs_buff, sizeof(char), 1024, fs);
     printf("Bytes present: %d\n", reading);
-    printf("payload: %s\n", fs_buff); 
+    printf("payload: %s\n", fs_buff);
 
-    //raw queue 
+    //raw queue
     printf("\n---raw work queue---\n");
     reading = 1;
     rq = fopen(TRF_QUEUE, "rb");

@@ -40,11 +40,18 @@
 
       var socket = io('http://127.0.0.1:5000');
       socket.on('digit', function(msg) {
-        console.log(msg.f1 + ' : ' + msg.f2 + ' : ' + msg.f3 + ' : ' + msg.f4);
-        gameInstance.SendMessage('pSphere1', 'BendFinger', msg.f1);
-        gameInstance.SendMessage('pSphere4', 'BendFinger', msg.f2);
-        gameInstance.SendMessage('pSphere7', 'BendFinger', msg.f3);
-        gameInstance.SendMessage('pSphere10', 'BendFinger', msg.f4);
+        var finger = msg.data['finger-bend']
+        var orientation = msg.data.orientation
+        // console.log(finger[0] + ' : ' + finger[1]+ ' : ' + finger[2] + ' : ' + finger[3]);
+        gameInstance.SendMessage('pSphere1', 'BendFinger', finger[0]);
+        gameInstance.SendMessage('pSphere4', 'BendFinger', finger[1]);
+        gameInstance.SendMessage('pSphere7', 'BendFinger', finger[2]);
+        gameInstance.SendMessage('pSphere10', 'BendFinger', finger[3]);
+        gameInstance.SendMessage('pCube1', 'BendHand', orientation[0]);
+
+        gameInstance.SendMessage('pCube1', 'TwistHand', orientation[1]);
+        gameInstance.SendMessage('pCube2', 'TwistWrist', orientation[1]);
+
       });
     </script>
     <div id="root"></div>

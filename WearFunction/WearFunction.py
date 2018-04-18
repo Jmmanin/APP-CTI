@@ -36,11 +36,11 @@ class WearFunction():
     def get_current_ttl(self):
         return self.ttl
 
-    def calc_next_wear(self, w, Hz=1):
+    def calc_next_wear(self, w):
         
         # steps for if active during timestep
         if w > 1 :
-            w_new = w / Hz
+            w_new = w / self.sample_rate
             self.active = 1
             self.w_c += w_new
             self.ttl = (self.Max_seconds - self.w_c) / w
@@ -59,6 +59,7 @@ class WearFunction():
         store_tuple = (self.w_c, self.ttl, (self.curr_tstep/self.sample_rate), self.active)
         self.timestep_memory.append(store_tuple)
         self.num_tsteps += 1
+        return store_tuple
 
     def peek_at_timestep(self, timeslice, mode='i'):
         new_pos = None

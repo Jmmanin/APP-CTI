@@ -4,6 +4,48 @@ from flask_socketio import SocketIO, emit
 from flask import Flask
 from random import random, randint
 
+import numpy as np
+import tensorflow as tf
+
+class Model(object):
+    def __init__(self):
+        n_inputs = 12
+        n_hidden1 = 20
+        n_outputs = 2
+
+        self.X = tf.placeholder(tf.float32, shape=(None, n_inputs), name="X")
+        self.y = tf.placeholder(tf.int64, shape=(None), name="y")
+
+        with tf.name_scope("dnn"):
+            self.hidden1 = tf.layers.dense(self.X, n_hidden1, name="hidden1", activation=tf.nn.relu)
+            self.logits = tf.layers.dense(self.hidden1, n_outputs, name="outputs")
+
+        with tf.name_scope("loss"):
+            self.xentropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y, logits=self.logits)
+            self.loss = tf.reduce_mean(self.xentropy, name="loss")
+            self.loss_summary = tf.summary.scalar('log_loss', self.loss)
+
+        with tf.name_scope("eval"):
+            self.correct = tf.nn.in_top_k(self.logits, self.y, 1)
+            self.accuracy = tf.reduce_mean(tf.cast(self.correct, tf.float32))
+            self.accuracy_summary = tf.summary.scalar('accuracy', self.accuracy)
+
+        init = tf.global_variables_initializer()
+        saver = tf.train.Saver()
+
+        final_model_path = "./app_cti_model"
+        self.sess = tf.Session()
+
+        saver.restore(self.sess, final_model_path)
+
+
+    def predict(self, X_test):
+        results = self.sess.run(tf.argmax(self.logits, 1), feed_dict={self.X: X_test})
+        return results
+
+
+
+
 app = Flask(__name__)
 socketio = SocketIO(app)
 thread = None
@@ -28,28 +70,19 @@ def background_thread():
             print('emitting packets')
             socketio.emit('digit', payload)
 
-        # f1 = round(random(), 6)
-        # f2 = round(random(), 6)
-        # f3 = round(random(), 6)
-        # f4 = round(random(), 6)
-        #
-        # p1 = round(random(), 6)
-        # p2 = round(random(), 6)
-        # p3 = round(random(), 6)
-        # p4 = round(random(), 6)
-        # p5 = round(random(), 6)
-        #
-        # o1 = randint(-90, 45)
-        # o2 = randint(-90, 0)
-        # o3 = randint(-20, 20)
-        #
-        # t = randint(30, 32)
-        #
-        # payload = {
-        #   'data': json
-        # }
-        #
-        # socketio.emit('digit', payload)
+            results = model.predict(np.asarray([fuck_list]))
+            print('emitting predictions')
+            print(results)
+
+            wear.calc_next_wear(results * 15)
+
+            my_wear = wear.get_current_wear()
+
+            my_wear = max(my_wear / 300, 1)
+
+            socketio.emit('prediction', my_wear)
+
+
 
 @socketio.on('connect')
 def test_connect():
@@ -59,4 +92,6 @@ def test_connect():
         thread = socketio.start_background_task(target=background_thread)
 
 if __name__ == '__main__':
+    model = Model()
+    wear = WearFunction(sampleRate = 25)
     socketio.run(app)

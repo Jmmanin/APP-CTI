@@ -32,9 +32,9 @@
 
       // window.addEventListener('keydown', function(event) {
       //   if(event.keyCode == 37) {
-      //     gameInstance.SendMessage('pSphere1', 'BendFinger', 0.5);
+      //     gameInstance.SendMessage('hand4', 'SetPrediction', 1.0);
       //   } else if(event.keyCode == 39) {
-      //     gameInstance.SendMessage('pSphere1', 'BendFinger', 0);
+      //     gameInstance.SendMessage('hand4', 'SetPrediction', 0);
       //   }
       // });
 
@@ -52,6 +52,10 @@
         gameInstance.SendMessage('pCube1', 'TwistHand', -orientation[1]);
         gameInstance.SendMessage('pCube2', 'TwistWrist', -orientation[1]);
 
+      });
+
+      socket.on('prediction', function(msg) {
+        gameInstance.SendMessage('hand4', 'SetPrediction', msg);
       });
     </script>
     <div id="root"></div>

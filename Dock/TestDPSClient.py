@@ -22,6 +22,11 @@ def background_thread():
         if resp != 1:
             (fuck_list, json) = dps.packet_reconstruct(pkt)
             print(json)
+            payload = {
+              'data': json
+            }
+            print('emitting packets')
+            socketio.emit('digit', payload)
 
         # f1 = round(random(), 6)
         # f2 = round(random(), 6)
@@ -41,30 +46,10 @@ def background_thread():
         # t = randint(30, 32)
         #
         # payload = {
-        #   'data': {
-        #     'finger-bend': [
-        #       f1,
-        #       f2,
-        #       f3,
-        #       f4
-        #     ],
-        #     'palm-pressure': [
-        #       p1,
-        #       p2,
-        #       p3,
-        #       p4,
-        #       p5
-        #     ],
-        #     'orientation': [
-        #       o1,
-        #       o2,
-        #       o3
-        #     ],
-        #     'temp': t
-        #   }
+        #   'data': json
         # }
-
-        socketio.emit('digit', payload)
+        #
+        # socketio.emit('digit', payload)
 
 @socketio.on('connect')
 def test_connect():

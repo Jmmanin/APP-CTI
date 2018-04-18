@@ -203,8 +203,9 @@ void *dock_manager() {
                 curr_pkt = COMM_getNextPacket();
                 Dock_convert2charArray(&curr_pkt, curr_pkt_ser);
                 
-                if(livestream_state.go_live) {
+                if(livestream_state.go_live == 1) {
                     Q_addData(curr_pkt_ser);
+                    printf("Adding pkt to Q, Q size: %d\n", Q_size());
                 }
                 
                 for(i = 0; i < INP_PKT_SIZE; i++) {
@@ -235,8 +236,8 @@ void *dock_manager() {
             new_stream_flag = 1;
         }
 
-        start_ti = clock();   //polls for packets at ~3Hz
-        while(wait_ti < 0.33) {
+        start_ti = clock();   //polls for packets at > 25Hz
+        while(wait_ti < 0.03) {
             end_ti = clock();
             wait_ti = (double) (end_ti - start_ti) / CLOCKS_PER_SEC;
         }
@@ -335,7 +336,7 @@ void *dps_manager() {
                     //get streaming packets
             case 2:
                 q_state = Q_removeData(pkt_buff);
-                //printf("Got packet from queue. Status: %d, pkt: '%s'\n", q_state, pkt_buff);
+                printf("***Got packet from queue. Status: %d, pkt[0]: '%x'\n", q_state, pkt_buff[0]);
                 if(q_state == 1) {
                     //printf("Transmitting paket...");
                     DPS_sendPacket(pkt_buff);

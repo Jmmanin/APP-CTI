@@ -27,7 +27,7 @@ class WearFunction():
             self.timestep_memory = initalArray
         self.sample_rate = sampleRate
 		
-	def get_current(self):
+    def get_current(self):
         return (self.w_c, self.ttl, self.curr_tstep, self.active)
 
     def get_current_wear(self):

@@ -17,7 +17,7 @@ class DPS_interface():
     '''
     def __init__(self):
         self.DOCK_PORT = 4648
-        self.PACKET_SIZE = 2 # the 2 byte demo packet
+        self.PACKET_SIZE = 52 # the 2 byte demo packet
         self.MAX_SAMPLE_RATE = 60
         self.MAX_STREAM_LENGTH = 300 * self.MAX_SAMPLE_RATE * self.PACKET_SIZE
         # initialize the socket on creation

@@ -163,6 +163,7 @@ void *input_manager() {
     INP_W.exit_code = 1;
     INP_W.msg[0] = command;
     INP_W.internal_stat = 0;
+    return;
 }
 
 void *dock_manager() {
@@ -191,7 +192,7 @@ void *dock_manager() {
         if(rig_active) {
             pthread_mutex_lock(&io_lock);
             if(DOCK_W.shutdown == 1) { //server may have released lock in attempt to shutdown
-                DOCK_W.exit_code == 1;
+                DOCK_W.exit_code = 1;
                 continue;              //jump out of loop and preform proper shutdown
             }
             rig_active = COMM_bridgeInit();
@@ -270,6 +271,7 @@ void *dock_manager() {
     }
     free(holdBuff);
     DOCK_W.exit_code = 1;
+    return;
 }
 
 void *transform_manager() {
@@ -301,6 +303,7 @@ void *transform_manager() {
         }
     }
     TRNS_W.exit_code = 1;
+    return;
 }
 
 void *dps_manager() {
@@ -388,6 +391,7 @@ void *dps_manager() {
         //printf("\n");
     }
     DPS_W.exit_code = 1;
+    return;
 }
 
 //*************************

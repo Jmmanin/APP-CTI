@@ -114,6 +114,7 @@ int DPS_returnStreamPayload(int payload_length, char *payload) {
 
 int DPS_sendPacket(char *pkt) {
     write(connfd, pkt, TRNS_PKT_SIZE);
+    return 0;
 
 }
 

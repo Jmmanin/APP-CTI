@@ -154,12 +154,12 @@ int store_raw_chunk(int stream_id, char *buffer_ptr, int chunk_numPkts) {
         trailing_trf = fopen(new_header.prev_file, "wb");
         fwrite(&prevtrail_header, sizeof(trf_header_t), 1, trailing_trf);
         fwrite(&prevtrail_payload, sizeof(char), prevtrail_header.payload, trailing_trf);
-        fclose; 
+        fclose(trailing_trf); 
     }  
 
-    if(stream_info.run_time >= MAX_STREAM_TIME) {
+    /*if(stream_info.run_time >= MAX_STREAM_TIME) {
         stream_info.build_state = COMPLETE;
-    }
+    }*/
 
     //Writes back out to files
         //BASE FILE
@@ -253,7 +253,7 @@ int cap_rawstream(int stream_id) {
 
     trfb_header_t stream_info = FS_get_trfb(stream_id);
     stream_info.build_state = COMPLETE;
-    FS_write_rawstream_base_file(stream_info);
+    //FS_write_rawstream_base_file(stream_info);
     return 0;
 
 }
@@ -303,7 +303,7 @@ return:
     n > 0 - stream_id work buffer belongs to. 
 */
 int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffer) {
-    printf("** Stream_id: %d: \n",stream_id);
+    //printf("** Stream_id: %d: \n",stream_id);
     int i;
     trfb_header_t target_base_meta;
     char target_buff[MAX_TRFBUFF_SIZE];
@@ -312,7 +312,7 @@ int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffe
     //setup target stream
     if(stream_id == 0) {
         stream_id = FS_pull_from_q();
-        printf("** stream id from q: %d\n", stream_id);
+        //printf("** stream id from q: %d\n", stream_id);
         if(stream_id == 0) {
             return 0; //there is nothing in the queue to work on
         }
@@ -320,17 +320,19 @@ int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffe
 
     target_base_meta = FS_get_trfb(stream_id);
     if(strcmp(target_base_meta.readout_ptr, "") == 0) {
-        printf("** exiting bc read ptr == ''\n");
+        //printf("** reading nothing from stream %d\n", stream_id);
         return 0;  //there is nothing in the stream to work on. 
     }
 
-    printf("** reading out from: '%s'\n", target_base_meta.readout_ptr);
+    //printf("** reading out from: '%s'\n", target_base_meta.readout_ptr);
     //readout target file
+    //printf("readout_ptr = '%s'", target_base_meta.readout_ptr);
     FILE *target_trf = fopen(target_base_meta.readout_ptr, "rb");
-    fread(meta_buffer, sizeof(trf_header_t), 1, target_trf);
+    int ro = fread(meta_buffer, sizeof(trf_header_t), 1, target_trf);
+    //printf("**reading from : '%s' : %d bytes, read %d\n", target_base_meta.readout_ptr, meta_buffer->payload, ro);
     fread(chunk_buff, sizeof(char), meta_buffer->payload, target_trf);
     fclose(target_trf);
-    for(i = 0; i < 15; i++) {
+    /*for(i = 0; i < 15; i++) {
         printf("%c", chunk_buff[i]);
     }
     printf("\n");
@@ -338,7 +340,7 @@ int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffe
         printf("%x", chunk_buff[i]);
     }
     printf("\n");
-    printf("** Next file to read: %s\n", meta_buffer->next_file);
+    printf("** Next file to read: %s\n", meta_buffer->next_file);*/
     //update pointers
     for(i = 0; i < LONG_FNAME_LENGTH; i++) {
         target_base_meta.readout_ptr[i] = meta_buffer->next_file[i];
@@ -349,7 +351,7 @@ int checkout_raw_chunk(int stream_id, char *chunk_buff, trf_header_t *meta_buffe
         }
     }
     
-    printf("**next read: %s\n", target_base_meta.readout_ptr);
+    //printf("**next read: %s\n", target_base_meta.readout_ptr);
     FS_get_file_name(trfb_s, stream_id, TRFB, 0);
     FILE *trfb = fopen(trfb_s, "wb");
     fwrite(&target_base_meta, sizeof(trfb_header_t), 1, trfb);
@@ -384,9 +386,9 @@ int read_processed_stream(int stream_id, prdat_header_t *meta_buffer, char *data
     return 0;
 }
 
-int db_backup() {} /*lol need to implement these eventually*/
-int db_restore_db() {}
-int db_restore_file() {}
+//int db_backup() {} /*lol need to implement these eventually*/
+//int db_restore_db() {}
+//int db_restore_file() {}
 
 //Internal functionalities
 int FS_create_stream_id() {
@@ -539,6 +541,7 @@ int FS_register_stream(int stream_id) {
     //TODO: determine who file will be organized and seeked. 
     //looks for a file in the folder BOOLEAN
 int FS_check_file(char* filename) {
+    //printf("opening: '%s'", filename);
     FILE *target = fopen(filename, "rb");
 
     if(target != NULL) {
@@ -563,7 +566,7 @@ trfb_header_t FS_get_trfb(int stream_id) {
 //Ensure neccessary files are present for work, creates if not
 void FS_Init() {
     //intial values
-    int state_init = 1;
+    int state_init = 0;
 
     //check for state table
     if(!FS_check_file(STATE_TABLE)) {
@@ -624,7 +627,9 @@ void FS_View_StateFiles() {
             printf("%d\n", rq_buff);
         }
     }
-
+    fclose(st);
+    fclose(fs);
+    fclose(rq);
     printf("\n\nAll files printed.\n");
 }
 

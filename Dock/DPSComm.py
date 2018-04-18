@@ -2,6 +2,7 @@
 import socket
 import sys
 import json
+import struct
 
 class DPS_interface():
     
@@ -115,29 +116,31 @@ class DPS_interface():
         self.sock.sendall(rst_msg.encode())
 
     def packet_reconstruct(self, byte_pkt):
+    
+        print(byte_pkt)
 
         output_flat = list()
         output_json = {}
         # angles
-        output_flat.append(float(byte_pkt[0:4]))
-        output_flat.append(float(byte_pkt[4:8]))
-        output_flat.append(float(byte_pkt[8:12]))
-        output_flat.append(float(byte_pkt[12:16]))
+        output_flat.append(float(struct.unpack('f', byte_pkt[0:4])[0]))
+        output_flat.append(float(struct.unpack('f', byte_pkt[4:8])[0]))
+        output_flat.append(float(struct.unpack('f', byte_pkt[8:12])[0]))
+        output_flat.append(float(struct.unpack('f', byte_pkt[12:16])[0]))
 
         # pressures
-        output_flat.append(float(byte_pkt[16:20]))
-        output_flat.append(float(byte_pkt[20:24]))
-        output_flat.append(float(byte_pkt[24:28]))
-        output_flat.append(float(byte_pkt[28:32]))
-        output_flat.append(float(byte_pkt[32:36]))
+        output_flat.append(float(struct.unpack('f', byte_pkt[16:20])[0]))
+        output_flat.append(float(struct.unpack('f', byte_pkt[20:24])[0]))
+        output_flat.append(float(struct.unpack('f', byte_pkt[24:28])[0]))
+        output_flat.append(float(struct.unpack('f', byte_pkt[28:32])[0]))
+        output_flat.append(float(struct.unpack('f', byte_pkt[32:36])[0]))
 
         # orientations
-        output_flat.append(float(byte_pkt[36:40]))
-        output_flat.append(float(byte_pkt[40:44]))
-        output_flat.append(float(byte_pkt[44:48]))
+        output_flat.append(float(struct.unpack('f', byte_pkt[36:40])[0]))
+        output_flat.append(float(struct.unpack('f', byte_pkt[40:44])[0]))
+        output_flat.append(float(struct.unpack('f', byte_pkt[44:48])[0]))
 
         # temp
-        output_flat.append(int(byte_pkt[48:52]))
+        output_flat.append(int(struct.unpack('i', byte_pkt[48:52])[0]))
 
         # convert values to json
         output_json['finger-bend'] = output_flat[0:4]

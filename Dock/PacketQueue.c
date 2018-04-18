@@ -75,9 +75,9 @@ void Q_addData(char *data) {
         }
         itemCount++;
 
-    } else {
+    } /*else {
        Q_resizeAndAdd(data);
-   }
+   }*/
 
 }
 
@@ -88,7 +88,7 @@ int Q_removeData(char *output_buff) {
 
     int i;
     for(i = 0; i < packetSize; i++) {
-        dataArray[(front*packetSize)+i] = output_buff[i];
+        output_buff[i] = dataArray[(front*packetSize)+i];
     }
     front++;
 	

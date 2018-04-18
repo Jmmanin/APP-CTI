@@ -14,7 +14,7 @@
 
 #define SVR_MONITORING_DELAY 0.25 /*how long the master thread in the server will pause between cycles*/
 
-#define Q_START_SIZE 64           /*start value of q_length (in packets)*/
+#define Q_START_SIZE 256           /*start value of q_length (in packets)*/
 
 #define FS_TABLE "storage/fs_fileSystem.txt"
 #define STATE_TABLE "storage/fs_state.bin"

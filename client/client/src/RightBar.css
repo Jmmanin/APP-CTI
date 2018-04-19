@@ -16,3 +16,14 @@
   background-color: #000000;
   width: 1px;
 }
+
+
+
+.RightBar-hand {
+  margin-top: 50px;
+  width: 300px;
+}
+
+.RightBar-hand-base {
+  position: absolute;
+}

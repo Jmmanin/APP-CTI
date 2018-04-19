@@ -61,36 +61,36 @@ data: {
 `
     }
 
-    var palm0 = 450
-    var palm1 = 450
-    var palm2 = 450
-    var palm3 = 450
-    var palm4 = 450
+    var palm0 = this.state.palmPressure != null ? this.state.palmPressure[4] : 0
+    var palm1 = this.state.palmPressure != null ? this.state.palmPressure[3] : 0
+    var palm2 = this.state.palmPressure != null ? this.state.palmPressure[2] : 0
+    var palm3 = this.state.palmPressure != null ? this.state.palmPressure[1] : 0
+    var palm4 = this.state.palmPressure != null ? this.state.palmPressure[0] : 0
 
-    palm0 = 1 - (palm0 / 450)
-    palm1 = 1 - (palm1 / 450)
-    palm2 = 1 - (palm2 / 450)
-    palm3 = 1 - (palm3 / 450)
-    palm4 = 1 - (palm4 / 450)
+    palm0 = 1 - (Math.min(200, palm0) / 200)
+    palm1 = 1 - (Math.min(100, palm1) / 100)
+    palm2 = 1 - (Math.min(100, palm2) / 100)
+    palm3 = 1 - (Math.min(100, palm3) / 100)
+    palm4 = 1 - (Math.min(100, palm4) / 100)
 
-    var l1a = Math.max(0, Math.min(240, (palm0 + palm1 + palm2) / 3 * 240 * 2))
-    var l1b = Math.max(0, Math.min(240, (palm3 + palm4) / 2 * 240 * 2))
+    var l1a = Math.max(40, Math.min(240, Math.max(palm0, palm1, palm2) * 240 * 2))
+    var l1b = Math.max(40, Math.min(240, Math.max(palm3, palm4) * 240 * 2))
 
-    var l2a = Math.max(0, Math.min(240, palm0 * 240 - 20))
-    var l2b = Math.max(0, Math.min(240, (palm1 + palm2) / 2 * 240 - 20))
-    var l2c = Math.max(0, Math.min(240, (palm3 + palm4) / 2 * 240 - 20))
+    var l2a = Math.max(30, Math.min(240, palm0 * 240 - 20))
+    var l2b = Math.max(30, Math.min(240, Math.max(palm1, palm2) * 240 - 20))
+    var l2c = Math.max(30, Math.min(240, Math.max(palm3, palm4) * 240 - 20))
 
-    var l3a = Math.max(0, Math.min(240, palm0 * 240 - 50))
-    var l3b = Math.max(0, Math.min(240, palm1 * 240 - 50))
-    var l3c = Math.max(0, Math.min(240, palm2 * 240 - 50))
-    var l3d = Math.max(0, Math.min(240, palm3 * 240 - 50))
-    var l3e = Math.max(0, Math.min(240, palm4 * 240 - 50))
+    var l3a = Math.max(20, Math.min(240, palm0 * 240 - 50))
+    var l3b = Math.max(20, Math.min(240, palm1 * 240 - 50))
+    var l3c = Math.max(20, Math.min(240, palm2 * 240 - 50))
+    var l3d = Math.max(20, Math.min(240, palm3 * 240 - 50))
+    var l3e = Math.max(20, Math.min(240, palm4 * 240 - 50))
 
-    var l4a = Math.max(0, Math.min(240, palm0 * 240 - 100))
-    var l4b = Math.max(0, Math.min(240, palm1 * 240 - 100))
-    var l4c = Math.max(0, Math.min(240, palm2 * 240 - 100))
-    var l4d = Math.max(0, Math.min(240, palm3 * 240 - 100))
-    var l4e = Math.max(0, Math.min(240, palm4 * 240 - 100))
+    var l4a = Math.max(10, Math.min(240, palm0 * 240 - 100))
+    var l4b = Math.max(10, Math.min(240, palm1 * 240 - 100))
+    var l4c = Math.max(10, Math.min(240, palm2 * 240 - 100))
+    var l4d = Math.max(10, Math.min(240, palm3 * 240 - 100))
+    var l4e = Math.max(10, Math.min(240, palm4 * 240 - 100))
 
     var l5a = Math.max(0, Math.min(240, palm0 * 240 - 150))
     var l5b = Math.max(0, Math.min(240, palm1 * 240 - 150))

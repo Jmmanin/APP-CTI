@@ -479,6 +479,7 @@ int FS_add_to_q(int stream_id) {
     fwrite(&q_length, sizeof(int), 1, work_q);
     fwrite(qbuf, sizeof(int), q_length, work_q);
     fclose(work_q);
+    free(qbuf);
     return 0;
 }
 

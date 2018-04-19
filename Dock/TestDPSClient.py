@@ -1,4 +1,5 @@
 from DPSComm import DPS_interface
+from WearFunction import WearFunction
 
 from flask_socketio import SocketIO, emit
 from flask import Flask
@@ -52,7 +53,7 @@ thread = None
 
 
 def tense(np_list):
-    results = model.predict(np.asarray([np_list]))
+    results = model.predict(np.asarray([np_list[0:12]]))
     print('emitting predictions')
     print(results)
 
@@ -60,7 +61,7 @@ def tense(np_list):
 
     my_wear = wear.get_current_wear()
 
-    my_wear = max(my_wear / 300, 1)
+    my_wear = min(my_wear[0] / 300.0, 1)
 
     socketio.emit('prediction', my_wear)
 
@@ -85,7 +86,7 @@ def background_thread():
             print('emitting packets')
             socketio.emit('digit', payload)
 
-            thread = socketio.start_background_task(target=tense, np_list)
+            thread = socketio.start_background_task(tense, np_list)
 
 
 @socketio.on('connect')

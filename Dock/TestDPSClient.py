@@ -50,6 +50,21 @@ app = Flask(__name__)
 socketio = SocketIO(app)
 thread = None
 
+
+def tense(np_list):
+    results = model.predict(np.asarray([np_list]))
+    print('emitting predictions')
+    print(results)
+
+    wear.calc_next_wear(results * 15)
+
+    my_wear = wear.get_current_wear()
+
+    my_wear = max(my_wear / 300, 1)
+
+    socketio.emit('prediction', my_wear)
+
+
 def background_thread():
     try:
         dps = DPS_interface()
@@ -62,7 +77,7 @@ def background_thread():
         socketio.sleep(0.04)
         (pkt, resp) = dps.get_live_packet()
         if resp != 1:
-            (fuck_list, json) = dps.packet_reconstruct(pkt)
+            (np_list, json) = dps.packet_reconstruct(pkt)
             print(json)
             payload = {
               'data': json
@@ -70,18 +85,7 @@ def background_thread():
             print('emitting packets')
             socketio.emit('digit', payload)
 
-            results = model.predict(np.asarray([fuck_list]))
-            print('emitting predictions')
-            print(results)
-
-            wear.calc_next_wear(results * 15)
-
-            my_wear = wear.get_current_wear()
-
-            my_wear = max(my_wear / 300, 1)
-
-            socketio.emit('prediction', my_wear)
-
+            thread = socketio.start_background_task(target=tense, np_list)
 
 
 @socketio.on('connect')

@@ -1,3 +1,0 @@
-model_checkpoint_path: "app_cti_model.ckpt"
-all_model_checkpoint_paths: "../app_cti_model"
-all_model_checkpoint_paths: "app_cti_model.ckpt"
